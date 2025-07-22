@@ -9,10 +9,7 @@ import uvicorn
 from . import models, schemas, crud
 from .database import engine, get_db
 from .dependencies import get_current_user_from_firebase, get_current_admin_user
-from .auth import get_current_user_from_firebase # Import for clarity
-
-# Buat semua tabel di database
-models.Base.metadata.create_all(bind=engine)
+from .auth import get_current_user_from_firebase
 
 app = FastAPI(
     title="Employee Attendance API",
