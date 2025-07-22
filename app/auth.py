@@ -3,26 +3,42 @@
 import firebase_admin
 from firebase_admin import credentials, auth
 from fastapi import Depends, HTTPException, status
-from fastapi.security import OAuth2Bearer
-from .config import settings
+from fastapi.security import OAuth2PasswordBearer # Perhatikan ini, sebelumnya OAuth2Bearer
+from .config import settings # Impor settings dari config.py
 from .database import get_db
 from sqlalchemy.orm import Session
 from . import crud, models, schemas
 import os
+import json # Tambahkan impor json
 
 # Inisialisasi Firebase Admin SDK
-# Pastikan file service account JSON ada
-try:
-    cred = credentials.Certificate(settings.FIREBASE_SERVICE_ACCOUNT_PATH)
-    firebase_admin.initialize_app(cred)
-    print("Firebase Admin SDK initialized successfully.")
-except Exception as e:
-    print(f"Error initializing Firebase Admin SDK: {e}")
-    # Jika ini terjadi saat startup, ada masalah serius
-    # Anda bisa memilih untuk raise exception atau log dan lanjutkan dengan functionalitas terbatas
-    raise RuntimeError(f"Failed to initialize Firebase Admin SDK: {e}")
+# Ini harus menjadi satu-satunya tempat Firebase diinisialisasi
+if not firebase_admin._apps: # Cek jika Firebase sudah diinisialisasi
+    try:
+        # Dapatkan string JSON kredensial dari variabel lingkungan
+        # Pastikan FIREBASE_SERVICE_ACCOUNT_KEY diatur di Vercel
+        firebase_config_json = settings.FIREBASE_SERVICE_ACCOUNT_KEY
 
-oauth2_scheme = OAuth2Bearer(tokenUrl="token") # tokenUrl tidak digunakan di sini untuk login, tapi untuk swagger docs
+        if firebase_config_json:
+            # Parse string JSON menjadi dictionary
+            cred_dict = json.loads(firebase_config_json)
+            cred = credentials.Certificate(cred_dict)
+            firebase_admin.initialize_app(cred)
+            print("Firebase Admin SDK initialized successfully from environment variable.")
+        else:
+            # Ini seharusnya tidak terjadi jika env var diatur di Vercel
+            raise ValueError("FIREBASE_SERVICE_ACCOUNT_KEY environment variable not set.")
+
+    except json.JSONDecodeError as e:
+        raise RuntimeError(f"Failed to parse FIREBASE_SERVICE_ACCOUNT_KEY JSON: {e}")
+    except ValueError as e:
+        raise RuntimeError(f"Initialization error: {e}")
+    except Exception as e:
+        raise RuntimeError(f"Failed to initialize Firebase Admin SDK: {e}")
+
+# Perhatikan: Sesuaikan ini jika Anda menggunakan FastAPI authentication secara penuh
+# Untuk demo ini, kita mungkin tidak memerlukannya karena otentikasi ditangani oleh Firebase
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token") # Menggunakan OAuth2PasswordBearer
 
 async def get_current_user_from_firebase(db: Session = Depends(get_db), token: str = Depends(oauth2_scheme)):
     """
