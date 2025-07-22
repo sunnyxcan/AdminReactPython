@@ -3,11 +3,7 @@
   "builds": [
     {
       "src": "app/main.py",
-      "use": "@vercel/python",
-      "config": {
-        "maxLambdaSize": "15mb",
-        "runtime": "python3.11"
-      }
+      "use": "@vercel/python"
     }
   ],
   "routes": [
@@ -15,11 +11,5 @@
       "src": "/(.*)",
       "dest": "app/main.py"
     }
-  ],
-  "env": {
-    "DATABASE_URL": "@employee_attendance_database_url",
-    "FIREBASE_SERVICE_ACCOUNT_JSON": "@firebase_service_account_json"
-    // Jika Anda memiliki SECRET_KEY atau variabel lain, tambahkan di sini
-    // "SECRET_KEY": "@your_secret_key"
-  }
+  ]
 }
