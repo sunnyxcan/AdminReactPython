@@ -1,35 +1,30 @@
 # backend/app/database.py
 
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text # Tambahkan 'text' di sini
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
-from .config import settings # Asumsikan settings ada di sini atau impor
+from .config import settings
 
 import logging
 
-# Konfigurasi logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Mengambil DATABASE_URL dari settings
 DATABASE_URL = settings.DATABASE_URL
 
-# Tambahkan logging untuk melihat DATABASE_URL (HATI-HATI: jangan log kredensial sensitif di produksi)
-logger.info(f"Attempting to connect to database using URL (first few chars): {DATABASE_URL[:30]}...") # Log sebagian URL
+logger.info(f"Attempting to connect to database using URL (first few chars): {DATABASE_URL[:30]}...")
 
 try:
     engine = create_engine(
         DATABASE_URL,
-        pool_pre_ping=True, # Memastikan koneksi sehat
-        # pool_recycle=3600 # Opsional: Daur ulang koneksi setiap jam
+        pool_pre_ping=True,
     )
-    # Coba koneksi sederhana untuk validasi awal
     with engine.connect() as connection:
-        connection.execute(f"SELECT 1") # Gunakan text() untuk SQLAlchemy 2.0+ jika ini SQL mentah
+        # Ubah baris ini:
+        connection.execute(text("SELECT 1")) # Gunakan text() untuk kueri SQL mentah di SQLAlchemy 2.0+
         logger.info("Database connection test successful.")
 except Exception as e:
     logger.error(f"Failed to connect to database: {e}", exc_info=True)
-    # Penting: Jika koneksi gagal, aplikasi TIDAK BOLEH berjalan
     raise RuntimeError(f"Could not connect to the database: {e}")
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
