@@ -23,5 +23,9 @@ class User(Base):
     createOn = Column("createOn", Date, server_default=func.current_date())
     modifiedOn = Column("modifiedOn", DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
-    # Hubungan dengan tabel FCMToken yang terpisah sudah benar
+    # --- TAMBAHKAN BARIS INI ---
+    # Mendefinisikan relasi ke model Role
+    role = relationship("Role", backref="users", lazy="joined")
+    # -----------------------------
+
     fcm_tokens = relationship("FCMToken", back_populates="user", cascade="all, delete-orphan")

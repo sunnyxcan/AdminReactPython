@@ -3,7 +3,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.core.database import get_db
-from app.users.schemas import User as UserSchema
+from app.users.schemas import User # Import the full User schema
 from app.users import crud as crud_user
 from app.fcm import crud as fcm_crud
 from app.fcm.schemas import FCMTokenCreate
@@ -15,7 +15,7 @@ class FCMSubscribe(BaseModel):
     fcm_token: str
     user_uid: str
 
-@router.get("/{user_uid}", response_model=UserSchema)
+@router.get("/{user_uid}", response_model=User) # Use the full User schema here
 def read_user_by_uid(user_uid: str, db: Session = Depends(get_db)):
     db_user = crud_user.get_user_by_uid(db, user_uid=user_uid)
     if db_user is None:
