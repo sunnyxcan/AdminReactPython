@@ -10,6 +10,10 @@ if not firebase_admin._apps:
     firebase_admin.initialize_app(cred)
 
 def send_fcm_message(token: str, title: str, body: str) -> bool:
+    """
+    Mengirim pesan FCM ke token tertentu dan menangani error.
+    Mengembalikan True jika berhasil, False jika token tidak valid.
+    """
     message = messaging.Message(
         data={
             "title": title,
@@ -21,10 +25,13 @@ def send_fcm_message(token: str, title: str, body: str) -> bool:
     )
     try:
         response = messaging.send(message)
-        logging.info(f"Berhasil mengirim pesan ke {token}: {response}")
+        logging.info(f"Berhasil mengirim pesan ke token '{token}': {response}")
         return True
+    except messaging.UnregisteredError:
+        logging.error(f"Gagal mengirim pesan ke '{token}': Token tidak terdaftar atau tidak valid.")
+        return False
     except Exception as e:
-        logging.error(f"Gagal mengirim pesan ke {token}: {e}")
+        logging.error(f"Gagal mengirim pesan ke '{token}': {e}")
         return False
 
 # Fungsi send_notification_with_data tidak lagi diperlukan. Anda bisa menghapusnya.

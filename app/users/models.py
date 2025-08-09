@@ -4,7 +4,7 @@ from sqlalchemy import Column, Integer, String, Date, DateTime, func, ForeignKey
 from sqlalchemy.orm import relationship 
 from app.core.database import Base
 
-from app.roles.models import Role 
+from app.roles.models import Role
 
 class User(Base):
     __tablename__ = "users"
@@ -23,9 +23,7 @@ class User(Base):
     createOn = Column("createOn", Date, server_default=func.current_date())
     modifiedOn = Column("modifiedOn", DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
-    # --- TAMBAHKAN BARIS INI ---
-    # Mendefinisikan relasi ke model Role
     role = relationship("Role", backref="users", lazy="joined")
-    # -----------------------------
-
+    izins = relationship("Izin", back_populates="user")
+    telats = relationship("DataTelat", foreign_keys="[DataTelat.user_uid]", back_populates="user")
     fcm_tokens = relationship("FCMToken", back_populates="user", cascade="all, delete-orphan")

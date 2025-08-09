@@ -3,17 +3,16 @@
 from pydantic import BaseModel, ConfigDict
 from datetime import date, datetime
 from typing import Optional
+from app.users.schemas import User
 
 class IzinBase(BaseModel):
     user_uid: str
-    nama: str
-    jabatan: Optional[str] = None
 
 class IzinCreate(IzinBase):
     pass
 
 class IzinUpdate(BaseModel):
-    status: str
+    status: Optional[str] = None
     jamKembali: Optional[datetime] = None
     ipKembali: Optional[str] = None
     durasi: Optional[str] = None
@@ -29,5 +28,7 @@ class Izin(IzinBase):
     status: str
     createOn: datetime
     modifiedOn: datetime
+    
+    user: Optional[User] = None
 
     model_config = ConfigDict(from_attributes=True)

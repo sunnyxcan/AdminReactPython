@@ -4,7 +4,6 @@ from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 from app.fcm.models import FCMToken as FCMTokenModel
 from typing import List
-# Hapus impor subscribe_to_topic
 
 def create_fcm_token_and_subscribe(db: Session, user_uid: str, fcm_token: str):
     """
@@ -35,3 +34,15 @@ def get_fcm_tokens_by_user(db: Session, user_uid: str) -> List[str]:
     """
     fcm_tokens = db.query(FCMTokenModel).filter(FCMTokenModel.user_uid == user_uid).all()
     return [token.fcm_token for token in fcm_tokens]
+    
+# --- Fungsi baru untuk menghapus token FCM yang tidak valid ---
+def delete_fcm_token(db: Session, fcm_token: str):
+    """
+    Menghapus token FCM yang tidak valid dari database.
+    """
+    db_token = db.query(FCMTokenModel).filter(FCMTokenModel.fcm_token == fcm_token).first()
+    if db_token:
+        db.delete(db_token)
+        db.commit()
+        return True
+    return False
