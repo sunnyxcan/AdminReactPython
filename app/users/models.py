@@ -5,6 +5,7 @@ from sqlalchemy.orm import relationship
 from app.core.database import Base
 
 from app.roles.models import Role
+# Asumsi modul-modul lain diimpor (datashift, datajobdesk, listjob)
 
 class User(Base):
     __tablename__ = "users"
@@ -20,6 +21,8 @@ class User(Base):
     email = Column(String, unique=True, index=True, nullable=False)
     role_id = Column(Integer, ForeignKey("roles.id"), nullable=False)
     status = Column(String, nullable=False)
+    tanggalAkhirCuti = Column("tanggalAkhirCuti", Date, nullable=True)
+    no_passport = Column("no_passport", String, nullable=True)
     createOn = Column("createOn", Date, server_default=func.current_date())
     modifiedOn = Column("modifiedOn", DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
@@ -27,3 +30,15 @@ class User(Base):
     izins = relationship("Izin", back_populates="user")
     telats = relationship("DataTelat", foreign_keys="[DataTelat.user_uid]", back_populates="user")
     fcm_tokens = relationship("FCMToken", back_populates="user", cascade="all, delete-orphan")
+    
+    # --- PERBAIKAN: Tambahkan relasi balik untuk model baru ---
+    shift = relationship("Shift", foreign_keys="[Shift.user_uid]", back_populates="user")
+    created_shifts = relationship("Shift", foreign_keys="[Shift.createdBy_uid]", back_populates="created_by_user")
+    
+    jobdesks = relationship("Jobdesk", foreign_keys="[Jobdesk.user_uid]", back_populates="user")
+    created_jobdesks = relationship("Jobdesk", foreign_keys="[Jobdesk.createdBy_uid]", back_populates="created_by_user")
+    modified_jobdesks = relationship("Jobdesk", foreign_keys="[Jobdesk.modifiedBy_uid]", back_populates="modified_by_user")
+
+    created_list_job_categories = relationship("ListJobCategory", foreign_keys="[ListJobCategory.createdBy_uid]", back_populates="created_by_user")
+    modified_list_job_categories = relationship("ListJobCategory", foreign_keys="[ListJobCategory.modifiedBy_uid]", back_populates="modified_by_user")
+    # --- AKHIR PERBAIKAN ---

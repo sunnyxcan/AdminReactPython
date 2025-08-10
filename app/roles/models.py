@@ -1,4 +1,4 @@
-# backend/app/role/models.py
+# backend/app/roles/models.py
 
 # Masukkan kode class Role yang kamu berikan di sini
 from sqlalchemy import Column, Integer, String, DateTime, func
