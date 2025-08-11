@@ -1,11 +1,11 @@
-# backend/app/users/models.py
+# app/users/models.py
 
 from sqlalchemy import Column, Integer, String, Date, DateTime, func, ForeignKey
-from sqlalchemy.orm import relationship 
+from sqlalchemy.orm import relationship
 from app.core.database import Base
 
 from app.roles.models import Role
-# Asumsi modul-modul lain diimpor (datashift, datajobdesk, listjob)
+from app.datacuti.models import Cuti # Import model Cuti
 
 class User(Base):
     __tablename__ = "users"
@@ -31,7 +31,13 @@ class User(Base):
     telats = relationship("DataTelat", foreign_keys="[DataTelat.user_uid]", back_populates="user")
     fcm_tokens = relationship("FCMToken", back_populates="user", cascade="all, delete-orphan")
     
-    # --- PERBAIKAN: Tambahkan relasi balik untuk model baru ---
+    # ⭐ PERBAIKAN: Relasi untuk cuti yang diajukan oleh user ini. back_populates harus sama dengan nama properti di Cuti
+    datacuti = relationship("Cuti", back_populates="user", foreign_keys="[Cuti.user_uid]")
+    
+    # ⭐ PERBAIKAN: Sesuaikan foreign_keys dengan nama kolom di model Cuti
+    cuti_disetujui = relationship("Cuti", back_populates="approved_by_user", foreign_keys="[Cuti.by]")
+    cuti_diedit = relationship("Cuti", back_populates="edited_by_user", foreign_keys="[Cuti.edit_by]")
+    
     shift = relationship("Shift", foreign_keys="[Shift.user_uid]", back_populates="user")
     created_shifts = relationship("Shift", foreign_keys="[Shift.createdBy_uid]", back_populates="created_by_user")
     
@@ -41,4 +47,3 @@ class User(Base):
 
     created_list_job_categories = relationship("ListJobCategory", foreign_keys="[ListJobCategory.createdBy_uid]", back_populates="created_by_user")
     modified_list_job_categories = relationship("ListJobCategory", foreign_keys="[ListJobCategory.modifiedBy_uid]", back_populates="modified_by_user")
-    # --- AKHIR PERBAIKAN ---

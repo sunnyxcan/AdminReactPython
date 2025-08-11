@@ -3,10 +3,10 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from typing import List, Optional
-from datetime import date, datetime
+from datetime import date
 
 from app.core.database import get_db
-from app.datashift import crud, schemas, models
+from app.datashift import crud, schemas
 from app.autentikasi.security import get_current_active_user as get_current_user
 from app.users.schemas import User
 
@@ -30,20 +30,15 @@ def read_all_shifts(
     user_uid: Optional[str] = None,
     start_date: Optional[date] = None,
     end_date: Optional[date] = None,
-    jabatan: Optional[str] = None, # <-- PERBAIKI: Tambahkan parameter jabatan
+    jabatan: Optional[str] = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     """
     Mengambil daftar semua data shift dengan opsi filter.
     """
-    if current_user.role.name != "Admin" and user_uid is not None and current_user.uid != user_uid:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Sebagai staff, Anda hanya dapat melihat shift milik Anda sendiri atau semua shift jika tidak ada filter user_uid."
-        )
-
-    shifts = crud.get_shifts(db, skip=skip, limit=limit, user_uid=user_uid, start_date=start_date, end_date=end_date, jabatan=jabatan) # <-- PERBAIKI: Teruskan jabatan
+    # Hapus semua logika otorisasi di sini untuk memungkinkan semua pengguna melihat semua data.
+    shifts = crud.get_shifts(db, skip=skip, limit=limit, user_uid=user_uid, start_date=start_date, end_date=end_date, jabatan=jabatan)
     return shifts
 
 # Endpoint untuk mendapatkan data shift berdasarkan no
@@ -60,11 +55,12 @@ def read_shift_by_no(
     if db_shift is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Shift tidak ditemukan")
 
-    if current_user.role.name != "Admin" and db_shift.user_uid != current_user.uid:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Tidak memiliki izin untuk mengakses shift ini."
-        )
+    # Hapus baris ini untuk memungkinkan semua pengguna melihat shift siapa pun
+    # if current_user.role.name != "Admin" and db_shift.user_uid != current_user.uid:
+    #     raise HTTPException(
+    #         status_code=status.HTTP_403_FORBIDDEN,
+    #         detail="Tidak memiliki izin untuk mengakses shift ini."
+    #     )
 
     return db_shift
 
@@ -80,7 +76,7 @@ def update_existing_shift(
     if db_shift is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Shift tidak ditemukan")
     
-    if current_user.role.name != "Admin" and db_shift.user_uid != current_user.uid:
+    if current_user.role.name not in ["Super Admin", "Admin"] and db_shift.user_uid != current_user.uid:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Tidak memiliki izin untuk memperbarui shift ini."
@@ -103,7 +99,7 @@ def delete_existing_shift(
     if db_shift is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Shift tidak ditemukan")
 
-    if current_user.role.name != "Admin" and db_shift.user_uid != current_user.uid:
+    if current_user.role.name != "Super Admin":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Tidak memiliki izin untuk menghapus shift ini."

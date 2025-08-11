@@ -17,18 +17,24 @@ from app.datashift.api import router as datashift_router
 from app.listjob.api import router as listjob_router
 # --- AKHIR PERUBAHAN BARU ---
 
+# ⭐ TAMBAHKAN INI UNTUK CUTI
+from app.datacuti.api import router as datacuti_router
+
 # Import model-model untuk pembuatan tabel
 from app.fcm import models as fcm_models
 from app.dataizin import models as izin_models
 from app.users import models as user_models
 from app.izin_rules import models as izin_rules_models
 from app.roles import models as role_models
-from app.datatelat import models as datatelat_models # Pastikan model ini diimpor
+from app.datatelat import models as datatelat_models
 # --- PERUBAHAN BARU ---
 from app.datajobdesk import models as datajobdesk_models
 from app.datashift import models as datashift_models
 from app.listjob import models as listjob_models
 # --- AKHIR PERUBAHAN BARU ---
+
+# ⭐ TAMBAHKAN INI UNTUK MODEL CUTI
+from app.datacuti import models as datacuti_models
 
 # Membuat tabel di database (jika belum ada).
 Base.metadata.create_all(bind=engine)
@@ -61,6 +67,9 @@ app.include_router(datajobdesk_router, prefix="/api/datajobdesk", tags=["DataJob
 app.include_router(datashift_router, prefix="/api/datashift", tags=["DataShift"])
 app.include_router(listjob_router, prefix="/api/listjob", tags=["ListJob"])
 # --- AKHIR PERUBAHAN BARU ---
+
+# ⭐ TAMBAHKAN INI UNTUK ROUTER CUTI
+app.include_router(datacuti_router, prefix="/api/datacuti", tags=["DataCuti"])
 
 @app.get("/")
 def read_root():
