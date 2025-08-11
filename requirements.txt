@@ -4,6 +4,6 @@ sqlalchemy
 psycopg2-binary
 pydantic
 python-dotenv
-python-dateutil
 firebase-admin
 pytz
+dateutil
