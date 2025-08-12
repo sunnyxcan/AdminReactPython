@@ -35,7 +35,7 @@ def create_new_list_job_category(
     """
     Membuat kategori list job baru. Dapat diakses oleh semua peran KECUALI Staff.
     """
-    if current_user.role.nama == "Staff":
+    if current_user.role.name == "Staff":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Anda tidak memiliki izin untuk membuat kategori list job. Peran Staff tidak diizinkan."
@@ -74,7 +74,7 @@ def update_existing_list_job_category(
     """
     Memperbarui kategori list job yang ada. Hanya untuk admin.
     """
-    if current_user.role.nama != "Admin":
+    if current_user.role.name != "Admin":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Anda tidak memiliki izin untuk memperbarui kategori list job."
@@ -107,7 +107,7 @@ def delete_existing_list_job_category(
     """
     Menghapus kategori list job. Hanya untuk admin.
     """
-    if current_user.role.nama != "Admin":
+    if current_user.role.name != "Admin":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Anda tidak memiliki izin untuk menghapus kategori list job."
