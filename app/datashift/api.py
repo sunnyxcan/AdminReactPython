@@ -76,10 +76,10 @@ def update_existing_shift(
     if db_shift is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Shift tidak ditemukan")
     
-    if current_user.role.name not in ["Super Admin", "Admin"] and db_shift.user_uid != current_user.uid:
+    if current_user.role.name == "Staff":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Tidak memiliki izin untuk memperbarui shift ini."
+            detail="Tidak memiliki izin untuk memperbarui shift."
         )
 
     updated_shift = crud.update_shift(db=db, shift_no=shift_no, shift_update=shift)

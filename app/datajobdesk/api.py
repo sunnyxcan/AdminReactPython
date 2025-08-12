@@ -24,7 +24,7 @@ def create_new_jobdesk(
     """
     Membuat data jobdesk baru.
     """
-    if current_user.role.nama == "Staff":
+    if current_user.role.name == "Staff":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Sebagai Staff, Anda tidak memiliki izin untuk membuat jobdesk."
@@ -58,7 +58,7 @@ def read_all_jobdesks(
     """
     Mengambil daftar semua data jobdesk dengan opsi filter dan paginasi.
     """
-    if current_user.role.nama != "Admin":
+    if current_user.role.name != "Admin":
         if user_uid is not None and current_user.uid != user_uid:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
@@ -93,7 +93,7 @@ def read_jobdesk_by_no(
     if db_jobdesk is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Jobdesk tidak ditemukan")
 
-    if current_user.role.nama != "Admin" and db_jobdesk.user_uid != current_user.uid:
+    if current_user.role.name != "Admin" and db_jobdesk.user_uid != current_user.uid:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Tidak memiliki izin untuk mengakses jobdesk ini."
@@ -117,13 +117,13 @@ def update_existing_jobdesk(
     if db_jobdesk is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Jobdesk tidak ditemukan")
 
-    if current_user.role.nama != "Admin" and db_jobdesk.user_uid != current_user.uid:
+    if current_user.role.name != "Admin" and db_jobdesk.user_uid != current_user.uid:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Tidak memiliki izin untuk memperbarui jobdesk ini."
         )
 
-    if current_user.role.nama != "Admin" and jobdesk.user_uid is not None and jobdesk.user_uid != db_jobdesk.user_uid:
+    if current_user.role.name != "Admin" and jobdesk.user_uid is not None and jobdesk.user_uid != db_jobdesk.user_uid:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Anda tidak dapat mengubah pemilik jobdesk."
@@ -161,7 +161,7 @@ def delete_existing_jobdesk(
     if db_jobdesk is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Jobdesk tidak ditemukan")
 
-    if current_user.role.nama != "Admin" and db_jobdesk.user_uid != current_user.uid:
+    if current_user.role.name != "Admin" and db_jobdesk.user_uid != current_user.uid:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Tidak memiliki izin untuk menghapus jobdesk ini."
