@@ -4,11 +4,12 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from datetime import date
+from sqlalchemy.exc import IntegrityError
 
 from app.core.database import get_db
 from app.datajobdesk import crud, schemas, models
 from app.autentikasi.security import get_current_active_user as get_current_user
-from app.users.schemas import User # <-- PERBAIKI: Ganti UserDetail dengan User
+from app.users.schemas import User
 from app.listjob import crud as listjob_category_crud
 
 router = APIRouter()
@@ -17,9 +18,9 @@ router = APIRouter()
 
 @router.post("/", response_model=schemas.JobdeskInDB, status_code=status.HTTP_201_CREATED)
 def create_new_jobdesk(
-    jobdesk: schemas.JobdeskCreate, 
+    jobdesk: schemas.JobdeskCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user) # <-- PERBAIKI
+    current_user: User = Depends(get_current_user)
 ):
     """
     Membuat data jobdesk baru.
@@ -29,17 +30,21 @@ def create_new_jobdesk(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Sebagai Staff, Anda tidak memiliki izin untuk membuat jobdesk."
         )
-
-    for cat_id in jobdesk.listjob_category_ids:
-        category_exists = listjob_category_crud.get_list_job_category(db, cat_id)
-        if not category_exists:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Kategori jobdesk dengan ID {cat_id} tidak ditemukan."
-            )
-
-    db_jobdesk = crud.create_jobdesk(db=db, jobdesk=jobdesk, createdBy_uid=current_user.uid)
-    return db_jobdesk
+    
+    try:
+        db_jobdesk = crud.create_jobdesk(db=db, jobdesk=jobdesk, createdBy_uid=current_user.uid)
+        return db_jobdesk
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
+    except IntegrityError:
+        # Menangani kesalahan integritas jika ada masalah unik lainnya
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Terjadi kesalahan saat menyimpan data. Pastikan tidak ada duplikasi entri."
+        )
 
 ### Endpoint untuk mendapatkan semua data jobdesk
 
@@ -53,7 +58,7 @@ def read_all_jobdesks(
     search: Optional[str] = None,
     jabatan: Optional[str] = None,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user) # <-- PERBAIKI
+    current_user: User = Depends(get_current_user)
 ):
     """
     Mengambil daftar semua data jobdesk dengan opsi filter dan paginasi.
@@ -84,7 +89,7 @@ def read_all_jobdesks(
 def read_jobdesk_by_no(
     jobdesk_no: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user) # <-- PERBAIKI
+    current_user: User = Depends(get_current_user)
 ):
     """
     Mengambil satu data jobdesk berdasarkan nomor (no).
@@ -93,12 +98,13 @@ def read_jobdesk_by_no(
     if db_jobdesk is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Jobdesk tidak ditemukan")
 
-    if current_user.role.name != "Admin" and db_jobdesk.user_uid != current_user.uid:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Tidak memiliki izin untuk mengakses jobdesk ini."
-        )
-
+    if current_user.role.name == "Staff":
+        if db_jobdesk.user_uid != current_user.uid:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Sebagai Staff, Anda hanya memiliki izin untuk melihat jobdesk Anda sendiri."
+            )
+    
     return db_jobdesk
 
 ### Endpoint untuk memperbarui data jobdesk
@@ -106,9 +112,9 @@ def read_jobdesk_by_no(
 @router.put("/{jobdesk_no}", response_model=schemas.JobdeskInDB)
 def update_existing_jobdesk(
     jobdesk_no: int,
-    jobdesk: schemas.JobdeskUpdate, 
+    jobdesk: schemas.JobdeskUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user) # <-- PERBAIKI
+    current_user: User = Depends(get_current_user)
 ):
     """
     Memperbarui data jobdesk yang ada.
@@ -117,34 +123,36 @@ def update_existing_jobdesk(
     if db_jobdesk is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Jobdesk tidak ditemukan")
 
-    if current_user.role.name != "Admin" and db_jobdesk.user_uid != current_user.uid:
+    if current_user.role.name == "Staff":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Tidak memiliki izin untuk memperbarui jobdesk ini."
+            detail="Sebagai Staff, Anda tidak memiliki izin untuk memperbarui jobdesk."
         )
-
+    
     if current_user.role.name != "Admin" and jobdesk.user_uid is not None and jobdesk.user_uid != db_jobdesk.user_uid:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Anda tidak dapat mengubah pemilik jobdesk."
+            detail="Hanya Admin yang dapat mengubah pemilik jobdesk."
         )
 
-    if jobdesk.listjob_category_ids is not None:
-        for cat_id in jobdesk.listjob_category_ids:
-            category_exists = listjob_category_crud.get_list_job_category(db, cat_id)
-            if not category_exists:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"Kategori jobdesk dengan ID {cat_id} tidak ditemukan."
-                )
-
-    updated_jobdesk = crud.update_jobdesk(
-        db=db,
-        jobdesk_no=jobdesk_no,
-        jobdesk_update=jobdesk,
-        modifiedBy_uid=current_user.uid
-    )
-    return updated_jobdesk
+    try:
+        updated_jobdesk = crud.update_jobdesk(
+            db=db,
+            jobdesk_no=jobdesk_no,
+            jobdesk_update=jobdesk,
+            modifiedBy_uid=current_user.uid
+        )
+        return updated_jobdesk
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
+    except IntegrityError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Terjadi kesalahan saat menyimpan data. Pastikan tidak ada duplikasi entri."
+        )
 
 ### Endpoint untuk menghapus data jobdesk
 
@@ -152,7 +160,7 @@ def update_existing_jobdesk(
 def delete_existing_jobdesk(
     jobdesk_no: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user) # <-- PERBAIKI
+    current_user: User = Depends(get_current_user)
 ):
     """
     Menghapus data jobdesk.
@@ -161,7 +169,8 @@ def delete_existing_jobdesk(
     if db_jobdesk is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Jobdesk tidak ditemukan")
 
-    if current_user.role.name != "Admin" and db_jobdesk.user_uid != current_user.uid:
+    # Logika otorisasi yang diperbarui
+    if current_user.role.name not in ["SuperAdmin", "Admin"] and db_jobdesk.user_uid != current_user.uid:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Tidak memiliki izin untuk menghapus jobdesk ini."

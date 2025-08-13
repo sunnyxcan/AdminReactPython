@@ -30,7 +30,7 @@ def read_all_list_job_categories(
 def create_new_list_job_category(
     category: schemas.ListJobCategoryCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)  # <-- PERBAIKI
+    current_user: User = Depends(get_current_user)
 ):
     """
     Membuat kategori list job baru. Dapat diakses oleh semua peran KECUALI Staff.
