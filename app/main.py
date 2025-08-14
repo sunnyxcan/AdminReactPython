@@ -37,7 +37,7 @@ origins = [
     "http://localhost:5173",
     "http://localhost:8000",
     "https://adminreachpython.web.app",
-    "https://bjteam.onrender.com",
+    "https://bosjokopermit.web.app",
 ]
 
 app.add_middleware(
