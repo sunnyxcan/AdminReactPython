@@ -36,7 +36,8 @@ app = FastAPI(title="Admin Panel API")
 origins = [
     "http://localhost:5173",
     "http://localhost:8000",
-    "https://adminreachpython.web.app"
+    "https://adminreachpython.web.app",
+    "https://bjteam.onrender.com",
 ]
 
 app.add_middleware(
