@@ -127,5 +127,5 @@ def get_overdue_izins(db: Session):
     today = date.today()
     return db.query(IzinModel).filter(
         IzinModel.status == "Lewat Waktu",
-        func.date(IzinModel.createOn) == today
+        func.date(IzinModel.tanggal) == today
     ).options(joinedload(IzinModel.user)).all()
