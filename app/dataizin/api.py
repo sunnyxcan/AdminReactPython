@@ -10,7 +10,7 @@ from app.services.fcm import send_fcm_message
 from app.fcm import crud as fcm_crud
 from app.utils.ip_utils import get_request_ip
 import logging
-from app.users import crud as crud_user
+from app.users import crud as crud_user # Pastikan ini diimpor
 from app.izin_rules import crud as crud_izin_rules
 from datetime import date, datetime
 
@@ -64,7 +64,8 @@ def izin_keluar(
     request: Request,
     db: Session = Depends(get_db)
 ):
-    user_data = crud_user.get_user(db, user_uid=izin.user_uid)
+    # Baris yang diperbaiki
+    user_data = crud_user.get_user_by_uid(db, user_uid=izin.user_uid)
     if not user_data:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User tidak ditemukan.")
 
