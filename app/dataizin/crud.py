@@ -152,9 +152,12 @@ def get_izins_by_user_today(db: Session, user_uid: str) -> List[IzinModel]:
 def get_overdue_izins(db: Session) -> List[IzinModel]:
     today_wib_date = datetime.now(WIB_TIMEZONE).date()
 
+    # ✅ PERBAIKAN: Menggunakan filter yang benar untuk membandingkan tanggal di zona waktu yang sama
+    # Menggunakan fungsi `DATE()` dari SQLite atau sejenisnya
     izins = db.query(IzinModel).filter(
         IzinModel.status == "Lewat Waktu",
-        func.timezone('Asia/Jakarta', func.date(IzinModel.tanggal)) == today_wib_date
+        # Memastikan perbandingan tanggal dilakukan dalam zona waktu WIB
+        func.date(func.timezone('Asia/Jakarta', IzinModel.tanggal)) == today_wib_date
     ).options(joinedload(IzinModel.user)).all()
 
     return [convert_to_wib(izin) for izin in izins]
@@ -169,6 +172,7 @@ def get_izins_by_year_and_date(db: Session, year: int, tanggal: str = None) -> L
     if tanggal:
         try:
             filter_date = datetime.strptime(tanggal, '%Y-%m-%d').date()
+            # ✅ PERBAIKAN: Menggunakan filter yang benar untuk tanggal
             conditions.append(
                 func.date(func.timezone('Asia/Jakarta', IzinModel.tanggal)) == filter_date
             )
