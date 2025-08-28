@@ -64,20 +64,21 @@ def read_list_job_category_by_id(
     return db_category
 
 # Endpoint: Memperbarui kategori list job
-@router.put("/{category_id}", response_model=schemas.ListJobCategoryInDB)
+@router.patch("/{category_id}", response_model=schemas.ListJobCategoryInDB)
 def update_existing_list_job_category(
     category_id: int,
     category_update: schemas.ListJobCategoryUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)  # <-- PERBAIKI
+    current_user: User = Depends(get_current_user)
 ):
     """
-    Memperbarui kategori list job yang ada. Hanya untuk admin.
+    Memperbarui kategori list job yang ada.
+    Dapat diakses oleh semua peran kecuali Staff.
     """
-    if current_user.role.name != "Admin":
+    if current_user.role.name == "Staff":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Anda tidak memiliki izin untuk memperbarui kategori list job."
+            detail="Anda tidak memiliki izin untuk memperbarui kategori list job. Peran Staff tidak diizinkan."
         )
 
     db_category = crud.get_list_job_category(db, category_id=category_id)

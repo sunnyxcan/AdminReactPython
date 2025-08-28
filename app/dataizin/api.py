@@ -1,5 +1,6 @@
 # backend/app/dataizin/api.py
 
+import logging
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 from typing import List
@@ -14,7 +15,15 @@ import pytz
 import threading
 from app.services.tasks import send_izin_notification_async
 
+# ⭐ Perbaiki di sini
 router = APIRouter()
+
+# ⭐ Konfigurasi logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 
 HARI_INDONESIA = {
     'monday': 'Senin',
@@ -42,12 +51,17 @@ def izin_keluar(
     request: Request,
     db: Session = Depends(get_db)
 ):
+    ip_address = get_request_ip(request)
+    logger.info(f"Permintaan POST /izin/keluar dari IP: {ip_address} untuk user UID: {izin.user_uid}")
+
     user_data = crud_user.get_user_by_uid(db, user_uid=izin.user_uid)
     if not user_data:
+        logger.warning(f"Ditolak: User dengan UID {izin.user_uid} tidak ditemukan.")
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User tidak ditemukan.")
 
     active_rule = crud_izin_rules.get_active_izin_rule(db)
     if not active_rule:
+        logger.error(f"Ditolak: Aturan izin tidak ditemukan atau tidak aktif. User UID: {izin.user_uid}")
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Aturan izin belum diatur atau tidak aktif."
@@ -70,7 +84,9 @@ def izin_keluar(
 
     if daily_izin_limit > 0:
         today_izin_count = crud_izin.get_izin_count_for_user_today(db, user_uid=izin.user_uid)
+        logger.info(f"User {user_data.fullname} (UID: {izin.user_uid}) sudah izin {today_izin_count}x hari ini. Batas: {daily_izin_limit}x.")
         if today_izin_count >= daily_izin_limit:
+            logger.warning(f"Ditolak: User {user_data.fullname} (UID: {izin.user_uid}) sudah mencapai batas harian.")
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Anda sudah mencapai batas ({detail_message_limit}x) izin keluar untuk hari ini."
@@ -78,7 +94,9 @@ def izin_keluar(
 
     if active_rule.max_concurrent_izin > 0:
         current_pending_izins = crud_izin.get_pending_izins(db)
+        logger.info(f"Jumlah izin pending saat ini: {len(current_pending_izins)}. Batas maksimal: {active_rule.max_concurrent_izin}.")
         if len(current_pending_izins) >= active_rule.max_concurrent_izin:
+            logger.warning(f"Ditolak: Batas jumlah izin yang sedang berjalan sudah tercapai.")
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Batas jumlah izin yang sedang berjalan ({active_rule.max_concurrent_izin} izin) sudah tercapai. Silakan tunggu hingga ada yang kembali."
@@ -86,31 +104,36 @@ def izin_keluar(
             
     jabatan = user_data.jabatan.lower() if user_data.jabatan else None
     if jabatan:
-        pending_izins_by_jabatan = [i for i in crud_izin.get_pending_izins(db) if i.user.jabatan.lower() == jabatan]
-        
+        pending_izins_by_jabatan = [i for i in crud_izin.get_pending_izins(db) if i.user.jabatan and i.user.jabatan.lower() == jabatan]
+        logger.info(f"Jumlah izin pending untuk jabatan '{jabatan}': {len(pending_izins_by_jabatan)}")
+
         if jabatan == "operator" and active_rule.max_izin_operator > 0 and len(pending_izins_by_jabatan) >= active_rule.max_izin_operator:
+            logger.warning(f"Ditolak: Batas izin 'Operator' terlampaui. UID: {izin.user_uid}")
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Batas izin untuk jabatan 'Operator' ({active_rule.max_izin_operator} izin) sudah tercapai. Silakan tunggu hingga ada yang kembali."
             )
         elif jabatan == "kapten" and active_rule.max_izin_kapten > 0 and len(pending_izins_by_jabatan) >= active_rule.max_izin_kapten:
+            logger.warning(f"Ditolak: Batas izin 'Kapten' terlampaui. UID: {izin.user_uid}")
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Batas izin untuk jabatan 'Kapten' ({active_rule.max_izin_kapten} izin) sudah tercapai. Silakan tunggu hingga ada yang kembali."
             )
         elif jabatan == "kasir" and active_rule.max_izin_kasir > 0 and len(pending_izins_by_jabatan) >= active_rule.max_izin_kasir:
+            logger.warning(f"Ditolak: Batas izin 'Kasir' terlampaui. UID: {izin.user_uid}")
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Batas izin untuk jabatan 'Kasir' ({active_rule.max_izin_kasir} izin) sudah tercapai. Silakan tunggu hingga ada yang kembali."
             )
         elif jabatan == "kasir lokal" and active_rule.max_izin_kasir_lokal > 0 and len(pending_izins_by_jabatan) >= active_rule.max_izin_kasir_lokal:
+            logger.warning(f"Ditolak: Batas izin 'Kasir Lokal' terlampaui. UID: {izin.user_uid}")
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Batas izin untuk jabatan 'Kasir Lokal' ({active_rule.max_izin_kasir_lokal} izin) sudah tercapai. Silakan tunggu hingga ada yang kembali."
             )
 
-    ip_address = get_request_ip(request)
     db_izin = crud_izin.create_izin_keluar(db=db, izin=izin, ip_keluar=ip_address)
+    logger.info(f"Izin keluar berhasil dibuat untuk user {user_data.fullname} (UID: {izin.user_uid}).")
 
     thread_db = get_db().__next__()
     notification_thread = threading.Thread(
@@ -134,19 +157,26 @@ def izin_kembali(
     request: Request,
     db: Session = Depends(get_db)
 ):
+    ip_address = get_request_ip(request)
+    logger.info(f"Permintaan PUT /izin/kembali/{no} dari IP: {ip_address}")
+
     db_izin = crud_izin.get_izin(db, no=no)
     if db_izin is None:
+        logger.warning(f"Izin dengan nomor {no} tidak ditemukan.")
         raise HTTPException(status_code=404, detail="Izin not found")
 
     if db_izin.status != "Pending":
+        logger.warning(f"Izin dengan nomor {no} tidak dalam status 'Pending'. Status saat ini: {db_izin.status}.")
         raise HTTPException(status_code=400, detail="Silahkan melakukan izin keluar terlebih dahulu.")
 
     active_rule = crud_izin_rules.get_active_izin_rule(db)
     if active_rule is None:
+        logger.error(f"Aturan izin tidak ditemukan saat mencoba update izin nomor {no}.")
         raise HTTPException(status_code=404, detail="Aturan izin belum diatur.")
         
-    ip_address = get_request_ip(request)
     db_izin_updated = crud_izin.update_izin_kembali(db=db, izin=db_izin, ip_kembali=ip_address, max_duration_seconds=active_rule.max_duration_seconds)
+
+    logger.info(f"Izin kembali berhasil untuk user {db_izin_updated.user.fullname} (UID: {db_izin_updated.user_uid}). Durasi: {db_izin_updated.durasi}, Status: {db_izin_updated.status}.")
 
     thread_db = get_db().__next__()
     notification_thread = threading.Thread(
