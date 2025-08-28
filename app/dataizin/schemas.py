@@ -1,7 +1,7 @@
 # backend/app/dataizin/schemas.py
 
 from pydantic import BaseModel, ConfigDict
-from datetime import date, datetime
+from datetime import datetime
 from typing import Optional
 from app.users.schemas import User
 
@@ -19,7 +19,7 @@ class IzinUpdate(BaseModel):
 
 class Izin(IzinBase):
     no: int
-    tanggal: date
+    tanggal: datetime
     jamKeluar: Optional[datetime] = None
     ipKeluar: Optional[str] = None
     jamKembali: Optional[datetime] = None

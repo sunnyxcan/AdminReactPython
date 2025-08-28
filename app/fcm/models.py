@@ -1,6 +1,6 @@
 # backend/app/fcm/models.py
 
-from sqlalchemy import Column, Integer, String, ForeignKey
+from sqlalchemy import Column, String, ForeignKey, Date, func
 from sqlalchemy.orm import relationship
 from app.core.database import Base
 
@@ -11,9 +11,10 @@ class FCMToken(Base):
     """
     __tablename__ = "fcm_tokens"
 
-    id = Column(Integer, primary_key=True, index=True)
-    user_uid = Column(String, ForeignKey("users.uid"), nullable=False)
-    fcm_token = Column(String, unique=True, index=True, nullable=False)
+    user_uid = Column(String, ForeignKey("users.uid"), nullable=False, index=True)
+    fcm_token = Column(String, primary_key=True, index=True, nullable=False)
+    device = Column(String, nullable=True)
+    createOn = Column("createOn", Date, server_default=func.current_date())
 
     # Menambahkan relationship untuk akses balik
     user = relationship("User", back_populates="fcm_tokens")

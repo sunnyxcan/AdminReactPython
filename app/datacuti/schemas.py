@@ -1,4 +1,4 @@
-# app/cuti/schemas.py
+# app/datacuti/schemas.py
 from pydantic import BaseModel, Field, validator, root_validator # Import root_validator
 from datetime import date, timedelta, datetime
 from typing import Optional, Literal, List

@@ -1,4 +1,4 @@
-# app/autentikasi/router.py
+# app/autentikasi/api.py
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session

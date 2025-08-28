@@ -1,6 +1,6 @@
 # backend/app/users/api.py
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.users.schemas import User, UserCreate, UserUpdate, UserCreateByAdmin, PasswordUpdate
@@ -8,10 +8,11 @@ from app.users import crud as crud_user
 from app.fcm import crud as fcm_crud
 from app.fcm.schemas import FCMTokenCreate
 from pydantic import BaseModel
-from typing import List
+from typing import List, Optional
 from firebase_admin import auth
 import logging
 from app.core.firebase import get_firebase_auth
+from app.utils.device_utils import detect_device_info
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -19,13 +20,14 @@ logger = logging.getLogger(__name__)
 def get_firebase_auth_instance():
     return get_firebase_auth()
 
-class FCMSubscribe(BaseModel):
-    fcm_token: str
-    user_uid: str
+# ✅ Model ini tidak lagi diperlukan, karena Anda sudah punya FCMTokenCreate
+# class FCMSubscribe(BaseModel):
+#     fcm_token: str
+#     user_uid: str
 
 @router.get("/", response_model=List[User])
-def read_all_users(db: Session = Depends(get_db)):
-    users = crud_user.get_users(db)
+def read_all_users(db: Session = Depends(get_db), skip: int = 0, limit: Optional[int] = None):
+    users = crud_user.get_users(db, skip=skip, limit=limit)
     return users
 
 @router.get("/{user_uid}", response_model=User)
@@ -86,7 +88,6 @@ def create_new_user(user_data: UserCreateByAdmin, db: Session = Depends(get_db),
         if new_uid:
             try:
                 auth.delete_user(new_uid)
-                logger.warning(f"User {new_uid} dihapus dari Firebase Auth karena gagal disimpan ke DB lokal.")
             except Exception as delete_e:
                 logger.error(f"Gagal menghapus user {new_uid} dari Firebase Auth setelah error DB lokal: {delete_e}")
         raise HTTPException(status_code=500, detail=f"Gagal menyimpan data pengguna ke database lokal: {e}")
@@ -135,11 +136,17 @@ def delete_user_by_id(user_id: str, db: Session = Depends(get_db)):
 
 @router.post("/fcm_token/subscribe")
 def subscribe_fcm_token(
-    fcm_data: FCMSubscribe,
-    db: Session = Depends(get_db)
+    fcm_data: FCMTokenCreate,
+    db: Session = Depends(get_db),
+    request: Request = None # 👈 Tambahkan parameter request
 ):
     try:
-        fcm_crud.create_fcm_token_and_subscribe(db, fcm_data.user_uid, fcm_data.fcm_token)
-        return {"message": "Token berhasil disimpan dan berlangganan ke topik."}
+        user_agent_string = request.headers.get("User-Agent")
+        device_info = detect_device_info(user_agent_string)
+        
+        # Kirim data perangkat ke fungsi CRUD
+        fcm_crud.create_fcm_token(db, fcm_data.user_uid, fcm_data.fcm_token, device_info)
+        
+        return {"message": "Token berhasil disimpan."}
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))

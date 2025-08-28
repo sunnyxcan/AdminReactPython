@@ -1,4 +1,4 @@
-# app/cuti/models.py
+# app/datacuti/models.py
 
 from sqlalchemy import Column, Integer, String, Date, ForeignKey, Text, Boolean, DateTime
 from sqlalchemy.dialects.postgresql import JSONB

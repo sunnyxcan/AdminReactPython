@@ -1,15 +1,9 @@
 # backend/app/services/fcm.py
 
-import firebase_admin
-from firebase_admin import credentials, messaging
-from app.core.config import settings
+from firebase_admin import messaging
 import logging
 
-if not firebase_admin._apps:
-    cred = credentials.Certificate(settings.FIREBASE_CREDENTIALS_PATH)
-    firebase_admin.initialize_app(cred)
-
-def send_fcm_message(token: str, title: str, body: str) -> bool:
+def send_fcm_message(token: str, title: str, body: str, click_action_url: str) -> bool:
     """
     Mengirim pesan FCM ke token tertentu dan menangani error.
     Mengembalikan True jika berhasil, False jika token tidak valid.
@@ -19,7 +13,7 @@ def send_fcm_message(token: str, title: str, body: str) -> bool:
             "title": title,
             "body": body,
             "icon": "/vite.svg",
-            "click_action": "/dashboard",
+            "url": click_action_url,  # ✨ Menggunakan 'url' sebagai key
         },
         token=token,
     )
@@ -33,8 +27,6 @@ def send_fcm_message(token: str, title: str, body: str) -> bool:
     except Exception as e:
         logging.error(f"Gagal mengirim pesan ke '{token}': {e}")
         return False
-
-# Fungsi send_notification_with_data tidak lagi diperlukan. Anda bisa menghapusnya.
 
 def subscribe_to_topic(tokens: list, topic: str):
     try:

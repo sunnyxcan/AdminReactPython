@@ -1,25 +1,28 @@
 # backend/app/dataizin/models.py
 
-from sqlalchemy import Column, Integer, String, Date, DateTime, func, ForeignKey
+from sqlalchemy import Column, Integer, String, DateTime, func, ForeignKey
 from sqlalchemy.orm import relationship, declarative_base
 from app.core.database import Base
 
 class Izin(Base):
     __tablename__ = "dataIzin"
-    no = Column(Integer, primary_key=True, index=True)
+    no = Column(Integer, primary_key=True, index=True, autoincrement=True)
     user_uid = Column(String, ForeignKey('users.uid'), nullable=False)
-    tanggal = Column(Date, default=func.current_date())
-    jamKeluar = Column(DateTime, nullable=True)
+    
+    # PERBAIKAN: Gunakan timezone-aware untuk semua kolom waktu untuk konsistensi
+    tanggal = Column(DateTime(timezone=True), default=func.now())
+    jamKeluar = Column(DateTime(timezone=True), nullable=True)
     ipKeluar = Column(String, nullable=True)
-    jamKembali = Column(DateTime, nullable=True)
+    jamKembali = Column(DateTime(timezone=True), nullable=True)
     ipKembali = Column(String, nullable=True)
+    
     durasi = Column(String, nullable=True)
     status = Column(String, default="Pending")
     createOn = Column(DateTime(timezone=True), server_default=func.now())
     modifiedOn = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
     user = relationship("User", back_populates="izins")
-    telat = relationship("DataTelat", uselist=False, back_populates="izin")
+    telats = relationship("DataTelat", back_populates="izin")
 
     def __repr__(self):
         return f"<Izin(no={self.no}, user_uid='{self.user_uid}', tanggal='{self.tanggal}')>"
@@ -34,11 +37,14 @@ class Izin(Base):
 
             no = Column(Integer, primary_key=True, index=True)
             user_uid = Column(String, ForeignKey('users.uid'), nullable=False)
-            tanggal = Column(Date, default=func.current_date())
-            jamKeluar = Column(DateTime, nullable=True)
+            
+            # PERBAIKAN: Gunakan timezone-aware untuk konsistensi
+            tanggal = Column(DateTime(timezone=True), default=func.now())
+            jamKeluar = Column(DateTime(timezone=True), nullable=True)
             ipKeluar = Column(String, nullable=True)
-            jamKembali = Column(DateTime, nullable=True)
+            jamKembali = Column(DateTime(timezone=True), nullable=True)
             ipKembali = Column(String, nullable=True)
+            
             durasi = Column(String, nullable=True)
             status = Column(String, default="Pending")
             createOn = Column(DateTime(timezone=True), server_default=func.now())
