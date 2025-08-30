@@ -33,24 +33,14 @@ HARI_INDONESIA = {
     'sunday': 'Minggu',
 }
 
-# Dapatkan semua data izin dengan limit 10 secara default
 @router.get("/", response_model=List[IzinSchema])
-def read_izins(
-    skip: int = 0, 
-    limit: int = 10, # ✨ Ditambahkan parameter limit dengan nilai default 10
-    db: Session = Depends(get_db)
-):
-    izins = crud_izin.get_izins(db, skip=skip, limit=limit) # ✨ Teruskan limit
+def read_izins(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
+    izins = crud_izin.get_izins(db, skip=skip, limit=limit)
     return izins
 
-# Dapatkan data izin berdasarkan user dengan limit 10 secara default
 @router.get("/users/{user_uid}", response_model=List[IzinSchema])
-def get_izins_by_user(
-    user_uid: str, 
-    db: Session = Depends(get_db),
-    limit: int = 10 # ✨ Ditambahkan parameter limit dengan nilai default 10
-):
-    izins = crud_izin.get_izins_by_user(db, user_uid=user_uid, limit=limit) # ✨ Teruskan limit
+def get_izins_by_user(user_uid: str, db: Session = Depends(get_db)):
+    izins = crud_izin.get_izins_by_user(db, user_uid=user_uid)
     return izins
 
 @router.post("/keluar", response_model=IzinSchema)
@@ -178,14 +168,9 @@ def get_pending_izins(db: Session = Depends(get_db)):
     pending_izins = crud_izin.get_pending_izins(db)
     return pending_izins
 
-# Dapatkan data izin berdasarkan user untuk hari ini dengan limit 10 secara default
 @router.get("/users/{user_uid}/today", response_model=List[IzinSchema])
-def get_izins_by_user_today(
-    user_uid: str, 
-    db: Session = Depends(get_db),
-    limit: int = 10 # ✨ Ditambahkan parameter limit dengan nilai default 10
-):
-    izins = crud_izin.get_izins_by_user_today(db, user_uid=user_uid, limit=limit) # ✨ Teruskan limit
+def get_izins_by_user_today(user_uid: str, db: Session = Depends(get_db)):
+    izins = crud_izin.get_izins_by_user_today(db, user_uid=user_uid)
     if not izins:
         return []
     return izins

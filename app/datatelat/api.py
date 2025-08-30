@@ -14,34 +14,32 @@ from app.users.models import User
 
 router = APIRouter()
 
-# Dapatkan semua data telat dengan filter tahun dan limit
+# Dapatkan semua data telat dengan filter tahun
 @router.get("/", response_model=List[DataTelatSchema])
 def get_all_datatelats(
     db: Session = Depends(get_db),
-    tahun: Optional[int] = None,
-    limit: int = 10  # ✨ Ditambahkan parameter limit
+    tahun: Optional[int] = None
 ):
     """
-    Mengambil semua data telat dengan limit 10 secara default. Filter opsional berdasarkan tahun.
+    Mengambil semua data telat. Filter opsional berdasarkan tahun.
     """
     if tahun:
-        datatelats = crud_datatelat.get_datatelats_by_year(db, tahun=tahun, limit=limit) # ✨ Teruskan limit
+        datatelats = crud_datatelat.get_datatelats_by_year(db, tahun=tahun)
     else:
-        datatelats = crud_datatelat.get_all_datatelats(db, limit=limit) # ✨ Teruskan limit
+        datatelats = crud_datatelat.get_all_datatelats(db)
     return datatelats
 
-# Dapatkan data telat berdasarkan bulan, tahun, dan limit
+# Dapatkan data telat berdasarkan bulan dan tahun
 @router.get("/filter_by_month_year/", response_model=List[DataTelatSchema])
 def get_datatelats_by_month_year(
     db: Session = Depends(get_db),
     bulan: Optional[int] = None,
-    tahun: Optional[int] = None,
-    limit: int = 10 # ✨ Ditambahkan parameter limit
+    tahun: Optional[int] = None
 ):
     """
-    Mengambil data telat dengan filter bulan dan tahun, serta limit 10 secara default.
+    Mengambil data telat dengan filter bulan dan tahun.
     """
-    datatelats = crud_datatelat.get_datatelats_by_month_year(db, bulan=bulan, tahun=tahun, limit=limit) # ✨ Teruskan limit
+    datatelats = crud_datatelat.get_datatelats_by_month_year(db, bulan=bulan, tahun=tahun)
     return datatelats
 
 # Dapatkan satu data telat berdasarkan nomor (no)

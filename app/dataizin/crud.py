@@ -49,23 +49,12 @@ def get_izin(db: Session, no: int):
         return convert_to_wib(izin)
     return None
 
-def get_izins(db: Session, skip: int = 0, limit: int = 10) -> List[IzinModel]:
-    """
-    Mengambil daftar izin dengan pagination (skip dan limit).
-    """
+def get_izins(db: Session, skip: int = 0, limit: int = 100) -> List[IzinModel]:
     izins = db.query(IzinModel).offset(skip).limit(limit).all()
     return [convert_to_wib(izin) for izin in izins]
 
-def get_izins_by_user(db: Session, user_uid: str, limit: int = 10) -> List[IzinModel]: # ✨ Tambahkan parameter limit
-    """
-    Mengambil daftar izin berdasarkan user UID, dengan limit 10 secara default.
-    """
-    izins = db.query(IzinModel).options(
-        joinedload(IzinModel.user)
-    ).filter(
-        IzinModel.user_uid == user_uid
-    ).limit(limit).all() # ✨ Terapkan .limit()
-    
+def get_izins_by_user(db: Session, user_uid: str) -> List[IzinModel]:
+    izins = db.query(IzinModel).options(joinedload(IzinModel.user)).filter(IzinModel.user_uid == user_uid).all()
     return [convert_to_wib(izin) for izin in izins]
 
 def create_izin_keluar(db: Session, izin: IzinCreate, ip_keluar: str):
@@ -142,10 +131,7 @@ def get_pending_izins(db: Session) -> List[IzinModel]:
 
     return [convert_to_wib(izin) for izin in izins]
 
-def get_izins_by_user_today(db: Session, user_uid: str, limit: int = 10) -> List[IzinModel]: # ✨ Tambahkan parameter limit
-    """
-    Mengambil daftar izin untuk user tertentu hari ini, dengan limit 10 secara default.
-    """
+def get_izins_by_user_today(db: Session, user_uid: str) -> List[IzinModel]:
     now_wib = datetime.now(WIB_TIMEZONE)
     start_of_today_wib = now_wib.replace(hour=0, minute=0, second=0, microsecond=0)
     end_of_today_wib = now_wib.replace(hour=23, minute=59, second=59, microsecond=999999)
@@ -159,7 +145,7 @@ def get_izins_by_user_today(db: Session, user_uid: str, limit: int = 10) -> List
         IzinModel.user_uid == user_uid,
         IzinModel.tanggal >= start_of_today_utc,
         IzinModel.tanggal <= end_of_today_utc
-    ).limit(limit).all() # ✨ Terapkan .limit()
+    ).all()
 
     return [convert_to_wib(izin) for izin in izins]
 
