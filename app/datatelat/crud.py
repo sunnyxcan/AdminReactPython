@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session, joinedload
 from app.datatelat.models import DataTelat
 from app.datatelat.schemas import DataTelatCreate, DataTelatUpdate
 from app.dataizin.models import Izin as IzinModel
-from sqlalchemy import extract
+from sqlalchemy import extract, desc
 from typing import Optional
 from datetime import datetime
 from fastapi import HTTPException, status
@@ -49,13 +49,16 @@ def create_data_telat(
 
 # --- Fungsi CRUD baru ---
 
-# Mengambil semua data telat
-def get_all_datatelats(db: Session):
+# Mengambil semua data telat dengan limit
+def get_all_datatelats(db: Session, limit: int = 10): # ✨ Tambahkan parameter limit
+    """
+    Mengambil semua data telat dengan limit 10 secara default.
+    """
     return db.query(DataTelat).options(
         joinedload(DataTelat.izin),
         joinedload(DataTelat.user),
         joinedload(DataTelat.approved_by)
-    ).all()
+    ).order_by(desc(DataTelat.no)).limit(limit).all() # ✨ Tambahkan .order_by() dan .limit()
 
 # Mengambil satu data telat berdasarkan nomor
 def get_datatelat_by_no(db: Session, dataTelat_no: int):
@@ -65,8 +68,11 @@ def get_datatelat_by_no(db: Session, dataTelat_no: int):
         joinedload(DataTelat.approved_by)
     ).filter(DataTelat.no == dataTelat_no).first()
 
-# PERBAIKAN: Mengambil data telat berdasarkan tahun DARI TANGGAL IZIN
-def get_datatelats_by_year(db: Session, tahun: int):
+# Mengambil data telat berdasarkan tahun DARI TANGGAL IZIN dengan limit
+def get_datatelats_by_year(db: Session, tahun: int, limit: int = 10): # ✨ Tambahkan parameter limit
+    """
+    Mengambil data telat berdasarkan tahun dari tanggal izin, dengan limit 10 secara default.
+    """
     query = db.query(DataTelat)
     query = query.join(IzinModel, DataTelat.izin_no == IzinModel.no)
     
@@ -78,10 +84,15 @@ def get_datatelats_by_year(db: Session, tahun: int):
         joinedload(DataTelat.approved_by)
     )
     
+    query = query.order_by(desc(IzinModel.tanggal)).limit(limit) # ✨ Tambahkan .order_by() dan .limit()
+    
     return query.all()
 
-# Mengambil data telat berdasarkan bulan dan tahun DARI TANGGAL IZIN
-def get_datatelats_by_month_year(db: Session, bulan: Optional[int] = None, tahun: Optional[int] = None):
+# Mengambil data telat berdasarkan bulan dan tahun DARI TANGGAL IZIN dengan limit
+def get_datatelats_by_month_year(db: Session, bulan: Optional[int] = None, tahun: Optional[int] = None, limit: int = 10): # ✨ Tambahkan parameter limit
+    """
+    Mengambil data telat berdasarkan bulan dan tahun dari tanggal izin, dengan limit 10 secara default.
+    """
     query = db.query(DataTelat)
     query = query.join(IzinModel, DataTelat.izin_no == IzinModel.no)
     
@@ -99,6 +110,8 @@ def get_datatelats_by_month_year(db: Session, bulan: Optional[int] = None, tahun
         joinedload(DataTelat.user),
         joinedload(DataTelat.approved_by)
     )
+    
+    query = query.order_by(desc(IzinModel.tanggal)).limit(limit) # ✨ Tambahkan .order_by() dan .limit()
     
     return query.all()
 

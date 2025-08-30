@@ -10,20 +10,13 @@ from app.fcm.schemas import FCMTokenCreate
 from pydantic import BaseModel
 from typing import List, Optional
 from firebase_admin import auth
-import logging
 from app.core.firebase import get_firebase_auth
 from app.utils.device_utils import detect_device_info
 
 router = APIRouter()
-logger = logging.getLogger(__name__)
 
 def get_firebase_auth_instance():
     return get_firebase_auth()
-
-# ✅ Model ini tidak lagi diperlukan, karena Anda sudah punya FCMTokenCreate
-# class FCMSubscribe(BaseModel):
-#     fcm_token: str
-#     user_uid: str
 
 @router.get("/", response_model=List[User])
 def read_all_users(db: Session = Depends(get_db), skip: int = 0, limit: Optional[int] = None):
@@ -56,12 +49,9 @@ def create_new_user(user_data: UserCreateByAdmin, db: Session = Depends(get_db),
             disabled=False
         )
         new_uid = firebase_user_record.uid
-        logger.info(f"Pengguna Firebase baru dibuat: {new_uid}")
     except auth.EmailAlreadyExistsError:
-        logger.warning(f"Percobaan membuat pengguna dengan email yang sudah ada di Firebase: {user_data.email}")
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email ini sudah terdaftar di Firebase.")
     except Exception as e:
-        logger.error(f"Gagal membuat akun Firebase: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Gagal membuat akun Firebase: {e}")
 
     try:
@@ -81,15 +71,13 @@ def create_new_user(user_data: UserCreateByAdmin, db: Session = Depends(get_db),
             no_passport=user_data.no_passport
         )
         created_user_in_db = crud_user.create_user_by_admin(db=db, user_data=user_create_data)
-        logger.info(f"Pengguna berhasil disimpan ke database lokal: {created_user_in_db.uid}")
         return created_user_in_db
     except Exception as e:
-        logger.error(f"Gagal menyimpan data pengguna ke database lokal setelah membuat di Firebase: {e}", exc_info=True)
         if new_uid:
             try:
                 auth.delete_user(new_uid)
             except Exception as delete_e:
-                logger.error(f"Gagal menghapus user {new_uid} dari Firebase Auth setelah error DB lokal: {delete_e}")
+                pass
         raise HTTPException(status_code=500, detail=f"Gagal menyimpan data pengguna ke database lokal: {e}")
 
 @router.put("/{user_id}", response_model=User)
@@ -108,12 +96,10 @@ def reset_user_password(
 ):
     try:
         auth.update_user(user_id, password=password_data.password)
-        logger.info(f"Kata sandi pengguna {user_id} berhasil direset.")
         return {"message": "Password updated successfully"}
     except auth.UserNotFoundError:
         raise HTTPException(status_code=404, detail="Pengguna tidak ditemukan di Firebase.")
     except Exception as e:
-        logger.error(f"Gagal mereset kata sandi untuk user {user_id}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Gagal mereset kata sandi: {e}")
 
 @router.delete("/{user_id}")
@@ -126,11 +112,10 @@ def delete_user_by_id(user_id: str, db: Session = Depends(get_db)):
     
     try:
         auth.delete_user(user_id)
-        logger.info(f"User {user_id} berhasil dihapus dari Firebase Auth.")
     except auth.UserNotFoundError:
-        logger.warning(f"User {user_id} tidak ditemukan di Firebase Auth saat mencoba menghapus.")
+        pass
     except Exception as e:
-        logger.error(f"Gagal menghapus user {user_id} dari Firebase Auth: {e}")
+        pass
         
     return {"message": "User deleted successfully"}
 
@@ -138,13 +123,12 @@ def delete_user_by_id(user_id: str, db: Session = Depends(get_db)):
 def subscribe_fcm_token(
     fcm_data: FCMTokenCreate,
     db: Session = Depends(get_db),
-    request: Request = None # 👈 Tambahkan parameter request
+    request: Request = None
 ):
     try:
         user_agent_string = request.headers.get("User-Agent")
         device_info = detect_device_info(user_agent_string)
         
-        # Kirim data perangkat ke fungsi CRUD
         fcm_crud.create_fcm_token(db, fcm_data.user_uid, fcm_data.fcm_token, device_info)
         
         return {"message": "Token berhasil disimpan."}

@@ -1,18 +1,16 @@
 # app/datacuti/schemas.py
-from pydantic import BaseModel, Field, validator, root_validator # Import root_validator
+
+from pydantic import BaseModel, Field, validator
 from datetime import date, timedelta, datetime
 from typing import Optional, Literal, List
-import json # Import json untuk parsing string JSON
+import json
 
-# Definisi ENUM untuk jenis cuti dan status
 CutiJenis = Literal["Cuti Kerja", "Cuti Lokal", "Cuti Indonesia", "Cuti Melahirkan", "Mix"]
 CutiStatus = Literal["Pending", "Cancel", "Reject", "Approved", "Done Catat", "Sedang Cuti", "Selesai Cuti"]
 PassportOption = Literal[True, False, None]
 
-# Opsi potongan gaji
 PotonganGajiOption = Literal["1:1", "1:3", None]
 
-# Skema untuk detail sub-cuti dalam mode "Mix"
 class SubCutiDetail(BaseModel):
     jenis: Literal["Cuti Kerja", "Cuti Lokal", "Cuti Indonesia", "Cuti Melahirkan"]
     tanggal_mulai_sub: date
@@ -20,7 +18,6 @@ class SubCutiDetail(BaseModel):
     masa_cuti_sub: int = Field(..., gt=0, description="Jumlah hari cuti untuk sub-jenis ini.")
     passport_sub: Optional[PassportOption] = None
 
-# Skema dasar untuk data cuti
 class CutiBase(BaseModel):
     user_uid: str
     tanggal_mulai: date
@@ -36,7 +33,7 @@ class CutiBase(BaseModel):
 
     @validator('detail_mix_cuti', pre=True, always=True)
     def validate_detail_mix_cuti_input(cls, v, values):
-        if isinstance(v, str): # Jika input adalah string, coba parse sebagai JSON
+        if isinstance(v, str):
             try:
                 v = json.loads(v)
             except json.JSONDecodeError:
@@ -57,11 +54,9 @@ class CutiBase(BaseModel):
             raise ValueError("Opsi potongan gaji harus dipilih jika masa cuti tambahan diisi.")
         return v
 
-# Skema untuk membuat pengajuan cuti baru
 class CutiCreate(CutiBase):
     pass
 
-# Skema untuk memperbarui data cuti
 class CutiUpdate(BaseModel):
     tanggal_mulai: Optional[date] = None
     tanggal_akhir: Optional[date] = None
@@ -81,7 +76,7 @@ class CutiUpdate(BaseModel):
 
     @validator('detail_mix_cuti', pre=True, always=True)
     def validate_detail_mix_cuti_update(cls, v, values):
-        if isinstance(v, str): # Jika input adalah string, coba parse sebagai JSON
+        if isinstance(v, str):
             try:
                 v = json.loads(v)
             except json.JSONDecodeError:
@@ -92,14 +87,13 @@ class CutiUpdate(BaseModel):
         return v
 
     @validator('masa_cuti_tambahan', pre=True, always=True)
-    def validate_potongan_gaji_opsi_update_validator(cls, v, values): # Ubah nama validator
+    def validate_potongan_gaji_opsi_update_validator(cls, v, values):
         if v is not None and 'potongan_gaji_opsi' in values and values['potongan_gaji_opsi'] is None:
             raise ValueError("Opsi potongan gaji harus dipilih jika masa cuti tambahan diisi.")
         elif 'potongan_gaji_opsi' in values and values['potongan_gaji_opsi'] is not None and v is None:
             raise ValueError("Masa cuti tambahan harus diisi jika opsi potongan gaji dipilih.")
         return v
 
-# Skema untuk menampilkan data cuti dari database (termasuk ID dan tanggal otomatis)
 class CutiInDB(CutiBase):
     id: int
     tanggal_akhir: date
@@ -110,12 +104,9 @@ class CutiInDB(CutiBase):
     edit_by: Optional[str] = None
     modified_on: datetime
 
-    # Tidak perlu validator di sini karena CutiBase sudah memiliki validatornya
-    # dan CutiInDB mewarisi dari CutiBase.
     class Config:
         from_attributes = True
 
-# Skema untuk menampilkan detail cuti yang lebih singkat (misalnya untuk list)
 class CutiDetail(BaseModel):
     id: int
     tanggal_mulai: date
@@ -128,17 +119,14 @@ class CutiDetail(BaseModel):
     edit_by: Optional[str] = None
     modified_on: datetime
 
-    # Perhatikan: CutiDetail tidak mewarisi CutiBase, jadi kita perlu tambahkan detail_mix_cuti
-    # dan validatornya jika CutiDetail juga mengembalikan detail_mix_cuti
     detail_mix_cuti: Optional[List[SubCutiDetail]] = None
 
     @validator('detail_mix_cuti', pre=True, always=True)
     def validate_detail_mix_cuti_output(cls, v, values):
-        if isinstance(v, str): # Jika input adalah string, coba parse sebagai JSON
+        if isinstance(v, str):
             try:
                 v = json.loads(v)
             except json.JSONDecodeError:
-                # Jika tidak bisa di-parse, kembalikan None atau raise error sesuai kebutuhan
                 return None 
         return v
 

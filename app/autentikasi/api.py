@@ -1,6 +1,7 @@
 # app/autentikasi/api.py
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 import logging
 
@@ -10,9 +11,13 @@ from app.core.firebase import get_firebase_auth
 from app.core.database import get_db
 from app.users import schemas as user_schemas
 from app.users import crud as user_crud
-from app.users import models as user_models # Ini baik-baik saja
+from app.users import models as user_models
 from app.roles import crud as role_crud
 from app.autentikasi import security as auth_security
+from app.logs.schemas import LogCreate
+from app.logs.crud import create_log
+from app.utils.ip_utils import get_request_ip
+from app.utils.device_utils import detect_device_info
 
 logger = logging.getLogger(__name__)
 
@@ -44,10 +49,73 @@ async def register_user_from_firebase_signup(user_data: user_schemas.UserCreate,
     
     return new_user
 
+@router.post("/login-with-log/", response_model=user_schemas.UserInDB)
+async def login_with_log(
+    request: Request,
+    form_data: OAuth2PasswordRequestForm = Depends(),
+    db: Session = Depends(get_db),
+):
+    # 🆕 Dapatkan IP dan informasi perangkat dari request
+    ip_address = get_request_ip(request)
+    user_agent = request.headers.get("User-Agent")
+    device_info = detect_device_info(user_agent)
+
+    try:
+        user_record = auth.get_user_by_email(form_data.username)
+        db_user = user_crud.get_user_by_email(db, email=form_data.username)
+        if not db_user:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Pengguna tidak ditemukan di database lokal.")
+
+        # 🆕 Sertakan data IP dan perangkat saat membuat log
+        log_data = LogCreate(
+            action="LOGIN_SUCCESS",
+            entity_name="User",
+            entity_id=db_user.uid,
+            details=f"Login berhasil untuk pengguna: {db_user.email}",
+            created_by=db_user.uid,
+            ip_address=ip_address,
+            device_info=device_info
+        )
+        create_log(db, log_data)
+        logger.info(f"Log login berhasil dibuat untuk user {db_user.uid}.")
+        return db_user
+    
+    except auth.UserNotFoundError:
+        # 🆕 Sertakan data IP dan perangkat saat membuat log gagal
+        log_data_fail = LogCreate(
+            action="LOGIN_FAILED",
+            entity_name="User",
+            entity_id="N/A",
+            details=f"Login gagal: Pengguna dengan email {form_data.username} tidak ditemukan di Firebase.",
+            ip_address=ip_address,
+            device_info=device_info
+        )
+        create_log(db, log_data_fail)
+        logger.warning(f"Percobaan login gagal untuk email: {form_data.username}")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Kredensial tidak valid.")
+    
+    except Exception as e:
+        # 🆕 Sertakan data IP dan perangkat saat membuat log gagal
+        log_data_fail = LogCreate(
+            action="LOGIN_FAILED",
+            entity_name="User",
+            entity_id="N/A",
+            details=f"Login gagal untuk email {form_data.username}: {e}",
+            ip_address=ip_address,
+            device_info=device_info
+        )
+        create_log(db, log_data_fail)
+        logger.error(f"Error saat login untuk email {form_data.username}: {e}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Terjadi kesalahan saat mencoba login.")
+
 @router.post("/login/", response_model=user_schemas.UserInDB)
 async def login(
-    current_user: user_models.User = Depends(auth_security.get_current_active_user)
+    request: Request,
+    current_user: user_models.User = Depends(auth_security.get_current_active_user),
+    db: Session = Depends(get_db)
 ):
+    # Endpoint ini sekarang hanya mengembalikan data pengguna,
+    # log sudah ditangani oleh fungsi login-with-log
     return current_user
 
 @router.get("/verify-auth/", response_model=user_schemas.UserInDB)

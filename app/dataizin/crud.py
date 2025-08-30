@@ -49,12 +49,23 @@ def get_izin(db: Session, no: int):
         return convert_to_wib(izin)
     return None
 
-def get_izins(db: Session, skip: int = 0, limit: int = 100) -> List[IzinModel]:
+def get_izins(db: Session, skip: int = 0, limit: int = 10) -> List[IzinModel]:
+    """
+    Mengambil daftar izin dengan pagination (skip dan limit).
+    """
     izins = db.query(IzinModel).offset(skip).limit(limit).all()
     return [convert_to_wib(izin) for izin in izins]
 
-def get_izins_by_user(db: Session, user_uid: str) -> List[IzinModel]:
-    izins = db.query(IzinModel).options(joinedload(IzinModel.user)).filter(IzinModel.user_uid == user_uid).all()
+def get_izins_by_user(db: Session, user_uid: str, limit: int = 10) -> List[IzinModel]: # ✨ Tambahkan parameter limit
+    """
+    Mengambil daftar izin berdasarkan user UID, dengan limit 10 secara default.
+    """
+    izins = db.query(IzinModel).options(
+        joinedload(IzinModel.user)
+    ).filter(
+        IzinModel.user_uid == user_uid
+    ).limit(limit).all() # ✨ Terapkan .limit()
+    
     return [convert_to_wib(izin) for izin in izins]
 
 def create_izin_keluar(db: Session, izin: IzinCreate, ip_keluar: str):
@@ -131,7 +142,10 @@ def get_pending_izins(db: Session) -> List[IzinModel]:
 
     return [convert_to_wib(izin) for izin in izins]
 
-def get_izins_by_user_today(db: Session, user_uid: str) -> List[IzinModel]:
+def get_izins_by_user_today(db: Session, user_uid: str, limit: int = 10) -> List[IzinModel]: # ✨ Tambahkan parameter limit
+    """
+    Mengambil daftar izin untuk user tertentu hari ini, dengan limit 10 secara default.
+    """
     now_wib = datetime.now(WIB_TIMEZONE)
     start_of_today_wib = now_wib.replace(hour=0, minute=0, second=0, microsecond=0)
     end_of_today_wib = now_wib.replace(hour=23, minute=59, second=59, microsecond=999999)
@@ -145,18 +159,15 @@ def get_izins_by_user_today(db: Session, user_uid: str) -> List[IzinModel]:
         IzinModel.user_uid == user_uid,
         IzinModel.tanggal >= start_of_today_utc,
         IzinModel.tanggal <= end_of_today_utc
-    ).all()
+    ).limit(limit).all() # ✨ Terapkan .limit()
 
     return [convert_to_wib(izin) for izin in izins]
 
 def get_overdue_izins(db: Session) -> List[IzinModel]:
     today_wib_date = datetime.now(WIB_TIMEZONE).date()
 
-    # ✅ PERBAIKAN: Menggunakan filter yang benar untuk membandingkan tanggal di zona waktu yang sama
-    # Menggunakan fungsi `DATE()` dari SQLite atau sejenisnya
     izins = db.query(IzinModel).filter(
         IzinModel.status == "Lewat Waktu",
-        # Memastikan perbandingan tanggal dilakukan dalam zona waktu WIB
         func.date(func.timezone('Asia/Jakarta', IzinModel.tanggal)) == today_wib_date
     ).options(joinedload(IzinModel.user)).all()
 
@@ -172,12 +183,10 @@ def get_izins_by_year_and_date(db: Session, year: int, tanggal: str = None) -> L
     if tanggal:
         try:
             filter_date = datetime.strptime(tanggal, '%Y-%m-%d').date()
-            # ✅ PERBAIKAN: Menggunakan filter yang benar untuk tanggal
             conditions.append(
                 func.date(func.timezone('Asia/Jakarta', IzinModel.tanggal)) == filter_date
             )
         except ValueError:
-            logging.error(f"Format tanggal tidak valid: {tanggal}")
             pass
 
     query = query.filter(and_(*conditions))

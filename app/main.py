@@ -19,6 +19,7 @@ from app.dataresign import api as dataresign_endpoints
 from app.whitelist import api as whitelist_endpoints
 from app.statusLive import api as statuslive_endpoints
 from app.autentikasi import api as auth_endpoints
+from app.logs import api as logs_endpoints # 🆕 Impor router logs
 
 # --- Pastikan semua impor model berada di sini ---
 from app.fcm import models as fcm_models
@@ -34,6 +35,7 @@ from app.datacuti import models as datacuti_models
 from app.dataresign import models as dataresign_models
 from app.whitelist import models as whitelist_models
 from app.statusLive import models as statuslive_models
+from app.logs import models as logs_models
 
 # --- Tambahan untuk Firebase ---
 import firebase_admin
@@ -86,6 +88,7 @@ app.include_router(datacuti_router, prefix="/api/datacuti", tags=["DataCuti"])
 app.include_router(dataresign_endpoints.router, prefix="/api/dataresign", tags=["DataResign"])
 app.include_router(whitelist_endpoints.router, prefix="/api/whitelist-ip", tags=["Whitelist IP"])
 app.include_router(statuslive_endpoints.router, prefix="/api/status-live", tags=["Status Live"])
+app.include_router(logs_endpoints.router, prefix="/api/logs", tags=["Logs"]) # 🆕 Tambahkan router logs
 
 @app.get("/")
 def read_root():

@@ -9,7 +9,6 @@ class Izin(Base):
     no = Column(Integer, primary_key=True, index=True, autoincrement=True)
     user_uid = Column(String, ForeignKey('users.uid'), nullable=False)
     
-    # PERBAIKAN: Gunakan timezone-aware untuk semua kolom waktu untuk konsistensi
     tanggal = Column(DateTime(timezone=True), default=func.now())
     jamKeluar = Column(DateTime(timezone=True), nullable=True)
     ipKeluar = Column(String, nullable=True)
@@ -38,7 +37,6 @@ class Izin(Base):
             no = Column(Integer, primary_key=True, index=True)
             user_uid = Column(String, ForeignKey('users.uid'), nullable=False)
             
-            # PERBAIKAN: Gunakan timezone-aware untuk konsistensi
             tanggal = Column(DateTime(timezone=True), default=func.now())
             jamKeluar = Column(DateTime(timezone=True), nullable=True)
             ipKeluar = Column(String, nullable=True)

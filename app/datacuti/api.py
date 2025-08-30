@@ -1,26 +1,20 @@
 # app/datacuti/api.py
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from datetime import date, timedelta
 import json
-import logging
 
 from app.core.database import get_db
 from app.datacuti import schemas, crud, models
 from app.autentikasi.security import verify_firebase_token
-# Perbaikan: Mengganti get_user dengan nama fungsi yang benar get_user_by_uid
 from app.users.crud import get_user_by_uid
 from app.users import models as user_models
-
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
 def get_user_role(db: Session, user_uid: str) -> Optional[str]:
-    """Mengambil nama peran (role) pengguna dari database."""
-    # Perbaikan: Menggunakan fungsi yang benar
     db_user = get_user_by_uid(db, user_uid)
     if db_user and db_user.role:
         return db_user.role.name
@@ -32,17 +26,12 @@ def create_new_cuti(
     db: Session = Depends(get_db),
     current_user_token: dict = Depends(verify_firebase_token)
 ):
-    """
-    Membuat pengajuan cuti baru.
-    Pengajuan hanya bisa dibuat untuk user ID yang sedang login.
-    """
     if cuti.user_uid != current_user_token.get('uid'):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Anda hanya dapat membuat pengajuan cuti untuk ID pengguna Anda sendiri."
         )
 
-    # Perbaikan: Menggunakan fungsi yang benar
     db_user = get_user_by_uid(db, cuti.user_uid)
     if not db_user:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="ID Pengguna tidak ditemukan.")
@@ -128,7 +117,7 @@ def create_new_cuti(
             calculated_masa_cuti_sub = (detail.tanggal_akhir_sub - detail.tanggal_mulai_sub).days + 1
             if detail.masa_cuti_sub != calculated_masa_cuti_sub:
                 raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
-                                     detail=f"Masa cuti sub-cuti ke-{i+1} ({detail.masa_cuti_sub} hari) tidak konsisten dengan tanggal ({calculated_masa_cuti_sub} hari).")
+                                    detail=f"Masa cuti sub-cuti ke-{i+1} ({detail.masa_cuti_sub} hari) tidak konsisten dengan tanggal ({calculated_masa_cuti_sub} hari).")
 
             if detail.jenis == "Cuti Melahirkan":
                 if detail.masa_cuti_sub != 90:
@@ -211,18 +200,12 @@ def read_all_cuti(
     db: Session = Depends(get_db),
     current_user_token: dict = Depends(verify_firebase_token)
 ):
-    """
-    Mengambil semua pengajuan cuti.
-    Semua pengguna dapat melihat daftar cuti.
-    """
     try:
         all_cuti = crud.get_all_cuti(db, skip=skip, limit=limit, status=status_filter)
         if not all_cuti:
-            logger.info("Tidak ada pengajuan cuti ditemukan.")
             return []
         return all_cuti
     except Exception as e:
-        logger.error(f"Error saat mengambil semua pengajuan cuti: {e}", exc_info=True)
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Terjadi kesalahan saat mengambil data cuti.")
 
 @router.get("/{cuti_id}", response_model=schemas.CutiInDB)
@@ -231,7 +214,6 @@ def read_cuti_by_id(
     db: Session = Depends(get_db),
     current_user_token: dict = Depends(verify_firebase_token)
 ):
-    """Mengambil detail pengajuan cuti berdasarkan ID."""
     db_cuti = crud.get_cuti(db, cuti_id=cuti_id)
     if db_cuti is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Pengajuan cuti tidak ditemukan")
@@ -255,7 +237,6 @@ def read_user_cuti(
     db: Session = Depends(get_db),
     current_user_token: dict = Depends(verify_firebase_token)
 ):
-    """Mengambil semua pengajuan cuti untuk user ID tertentu."""
     current_user_role = get_user_role(db, current_user_token.get('uid'))
     can_view_user_cuti = (
         user_uid == current_user_token.get('uid') or
@@ -275,11 +256,6 @@ def update_existing_cuti(
     db: Session = Depends(get_db),
     current_user_token: dict = Depends(verify_firebase_token)
 ):
-    """
-    Memperbarui pengajuan cuti yang sudah ada.
-    Hanya pemilik cuti atau admin/superadmin/leader/manager yang dapat memperbarui.
-    Admin/Superadmin/Leader/Manager memiliki kontrol lebih banyak atas field yang dapat diperbarui.
-    """
     db_cuti = crud.get_cuti(db, cuti_id=cuti_id)
     if db_cuti is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Pengajuan cuti tidak ditemukan")
@@ -302,7 +278,7 @@ def update_existing_cuti(
             cuti_update.detail_mix_cuti is not None or
             cuti_update.edit_by is not None):
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
-                                 detail="Sebagai pengguna biasa, Anda hanya dapat mengubah keterangan atau lampiran cuti pending Anda sendiri.")
+                                detail="Sebagai pengguna biasa, Anda hanya dapat mengubah keterangan atau lampiran cuti pending Anda sendiri.")
         if db_cuti.status != "Pending":
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Anda hanya dapat mengedit pengajuan cuti yang berstatus 'Pending'.")
 
@@ -341,7 +317,6 @@ def update_existing_cuti(
             detail="Masa cuti tambahan tidak boleh negatif."
         )
 
-    # Perbaikan: Menggunakan fungsi yang benar
     db_user = get_user_by_uid(db, db_cuti.user_uid)
     masa_kerja_years = crud.calculate_masa_kerja_years(db_user.joinDate)
     masa_kerja_months = crud.calculate_masa_kerja_months(db_user.joinDate)
@@ -372,7 +347,6 @@ def update_existing_cuti(
             try:
                 current_detail_mix_cuti = [schemas.SubCutiDetail(**d) for d in json.loads(db_cuti.detail_mix_cuti)]
             except (json.JSONDecodeError, TypeError) as e:
-                logger.error(f"Failed to parse existing Mix Cuti details for cuti_id {cuti_id}: {e}", exc_info=True)
                 raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to parse existing Mix Cuti details.")
 
         if not current_detail_mix_cuti:
@@ -395,7 +369,7 @@ def update_existing_cuti(
             calculated_masa_cuti_sub = (detail.tanggal_akhir_sub - detail.tanggal_mulai_sub).days + 1
             if detail.masa_cuti_sub != calculated_masa_cuti_sub:
                 raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
-                                     detail=f"Masa cuti sub-cuti ke-{i+1} ({detail.masa_cuti_sub} hari) tidak konsisten dengan tanggal ({calculated_masa_cuti_sub} hari).")
+                                    detail=f"Masa cuti sub-cuti ke-{i+1} ({detail.masa_cuti_sub} hari) tidak konsisten dengan tanggal ({calculated_masa_cuti_sub} hari).")
 
             if detail.jenis == "Cuti Melahirkan":
                 if detail.masa_cuti_sub != 90:
@@ -484,11 +458,6 @@ def delete_existing_cuti(
     db: Session = Depends(get_db),
     current_user_token: dict = Depends(verify_firebase_token)
 ):
-    """
-    Menghapus pengajuan cuti.
-    Hanya pemilik cuti atau admin/superadmin yang dapat menghapus.
-    Ada batasan status cuti yang dapat dihapus.
-    """
     db_cuti = crud.get_cuti(db, cuti_id=cuti_id)
     if db_cuti is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Pengajuan cuti tidak ditemukan")

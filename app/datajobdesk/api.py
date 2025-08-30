@@ -23,27 +23,44 @@ def create_new_jobdesk(
     current_user: User = Depends(get_current_user)
 ):
     """
-    Membuat data jobdesk baru.
+    Membuat data jobdesk baru. Hanya Admin, SuperAdmin, atau staff yang bisa membuat jobdesk untuk dirinya sendiri.
     """
-    if current_user.role.name == "Staff":
+    # Aturan otorisasi:
+    if current_user.role.name not in ["Admin", "SuperAdmin"] and jobdesk.user_uid != current_user.uid:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Sebagai Staff, Anda tidak memiliki izin untuk membuat jobdesk."
+            detail="Sebagai Staff, Anda hanya dapat membuat jobdesk untuk diri Anda sendiri."
         )
-    
+
+    # Memastikan listjob_category_ids tidak mengandung duplikasi
+    jobdesk.listjob_category_ids = list(set(jobdesk.listjob_category_ids))
+
     try:
-        db_jobdesk = crud.create_jobdesk(db=db, jobdesk=jobdesk, createdBy_uid=current_user.uid)
-        return db_jobdesk
+        new_jobdesk = crud.create_jobdesk(
+            db=db, 
+            jobdesk_create=jobdesk, 
+            createdBy_uid=current_user.uid
+        )
+        return new_jobdesk
     except ValueError as e:
+        # Menangkap kesalahan validasi, termasuk duplikasi
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e)
         )
-    except IntegrityError:
-        # Menangani kesalahan integritas jika ada masalah unik lainnya
+    except IntegrityError as e:
+        db.rollback()
+        # Periksa detail kesalahan IntegrityError untuk memberikan pesan yang lebih spesifik
+        if "unique constraint" in str(e).lower() and "kategori_jobdesk" in str(e).lower():
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Kategori yang sama telah ditambahkan ke jobdesk ini."
+            )
+        
+        # Penanganan kesalahan umum lainnya
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Terjadi kesalahan saat menyimpan data. Pastikan tidak ada duplikasi entri."
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Terjadi kesalahan server saat menyimpan data."
         )
 
 ### Endpoint untuk mendapatkan semua data jobdesk
@@ -148,7 +165,8 @@ def update_existing_jobdesk(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e)
         )
-    except IntegrityError:
+    except IntegrityError as e:
+        db.rollback()
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Terjadi kesalahan saat menyimpan data. Pastikan tidak ada duplikasi entri."

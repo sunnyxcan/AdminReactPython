@@ -33,14 +33,24 @@ HARI_INDONESIA = {
     'sunday': 'Minggu',
 }
 
+# Dapatkan semua data izin dengan limit 10 secara default
 @router.get("/", response_model=List[IzinSchema])
-def read_izins(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
-    izins = crud_izin.get_izins(db, skip=skip, limit=limit)
+def read_izins(
+    skip: int = 0, 
+    limit: int = 10, # ✨ Ditambahkan parameter limit dengan nilai default 10
+    db: Session = Depends(get_db)
+):
+    izins = crud_izin.get_izins(db, skip=skip, limit=limit) # ✨ Teruskan limit
     return izins
 
+# Dapatkan data izin berdasarkan user dengan limit 10 secara default
 @router.get("/users/{user_uid}", response_model=List[IzinSchema])
-def get_izins_by_user(user_uid: str, db: Session = Depends(get_db)):
-    izins = crud_izin.get_izins_by_user(db, user_uid=user_uid)
+def get_izins_by_user(
+    user_uid: str, 
+    db: Session = Depends(get_db),
+    limit: int = 10 # ✨ Ditambahkan parameter limit dengan nilai default 10
+):
+    izins = crud_izin.get_izins_by_user(db, user_uid=user_uid, limit=limit) # ✨ Teruskan limit
     return izins
 
 @router.post("/keluar", response_model=IzinSchema)
@@ -50,7 +60,6 @@ def izin_keluar(
     db: Session = Depends(get_db)
 ):
     ip_address = get_request_ip(request)
-    logger.info(f"Permintaan POST /izin/keluar dari IP: {ip_address} untuk user UID: {izin.user_uid}")
 
     user_data = crud_user.get_user_by_uid(db, user_uid=izin.user_uid)
     if not user_data:
@@ -77,7 +86,6 @@ def izin_keluar(
 
     if daily_izin_limit is not None and daily_izin_limit >= 0:
         today_izin_count = crud_izin.get_izin_count_for_user_today(db, user_uid=izin.user_uid)
-        logger.info(f"User {user_data.fullname} (UID: {izin.user_uid}) sudah izin {today_izin_count}x hari ini. Batas: {daily_izin_limit}x.")
         if today_izin_count >= daily_izin_limit:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -86,7 +94,6 @@ def izin_keluar(
 
     if active_rule.max_concurrent_izin is not None and active_rule.max_concurrent_izin >= 0:
         current_pending_izins = crud_izin.get_pending_izins(db)
-        logger.info(f"Jumlah izin pending saat ini: {len(current_pending_izins)}. Batas maksimal: {active_rule.max_concurrent_izin}.")
         if len(current_pending_izins) >= active_rule.max_concurrent_izin:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -105,7 +112,6 @@ def izin_keluar(
         }
         
         if jabatan in jabatan_limits and jabatan_limits[jabatan] is not None and jabatan_limits[jabatan] >= 0:
-            logger.info(f"Jumlah izin pending untuk jabatan '{jabatan}': {len(pending_izins_by_jabatan)}. Batas: {jabatan_limits[jabatan]}.")
             if len(pending_izins_by_jabatan) >= jabatan_limits[jabatan]:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
@@ -113,7 +119,6 @@ def izin_keluar(
                 )
 
     db_izin = crud_izin.create_izin_keluar(db=db, izin=izin, ip_keluar=ip_address)
-    logger.info(f"Izin keluar berhasil dibuat untuk user {user_data.fullname} (UID: {izin.user_uid}).")
 
     thread_db = get_db().__next__()
     notification_thread = threading.Thread(
@@ -138,7 +143,6 @@ def izin_kembali(
     db: Session = Depends(get_db)
 ):
     ip_address = get_request_ip(request)
-    logger.info(f"Permintaan PUT /izin/kembali/{no} dari IP: {ip_address}")
 
     db_izin = crud_izin.get_izin(db, no=no)
     if db_izin is None:
@@ -152,8 +156,6 @@ def izin_kembali(
         raise HTTPException(status_code=404, detail="Aturan izin belum diatur.")
         
     db_izin_updated = crud_izin.update_izin_kembali(db=db, izin=db_izin, ip_kembali=ip_address, max_duration_seconds=active_rule.max_duration_seconds)
-
-    logger.info(f"Izin kembali berhasil untuk user {db_izin_updated.user.fullname} (UID: {db_izin_updated.user_uid}). Durasi: {db_izin_updated.durasi}, Status: {db_izin_updated.status}.")
 
     thread_db = get_db().__next__()
     notification_thread = threading.Thread(
@@ -176,9 +178,14 @@ def get_pending_izins(db: Session = Depends(get_db)):
     pending_izins = crud_izin.get_pending_izins(db)
     return pending_izins
 
+# Dapatkan data izin berdasarkan user untuk hari ini dengan limit 10 secara default
 @router.get("/users/{user_uid}/today", response_model=List[IzinSchema])
-def get_izins_by_user_today(user_uid: str, db: Session = Depends(get_db)):
-    izins = crud_izin.get_izins_by_user_today(db, user_uid=user_uid)
+def get_izins_by_user_today(
+    user_uid: str, 
+    db: Session = Depends(get_db),
+    limit: int = 10 # ✨ Ditambahkan parameter limit dengan nilai default 10
+):
+    izins = crud_izin.get_izins_by_user_today(db, user_uid=user_uid, limit=limit) # ✨ Teruskan limit
     if not izins:
         return []
     return izins

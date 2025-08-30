@@ -5,7 +5,7 @@ from sqlalchemy.orm import relationship
 from app.core.database import Base
 
 from app.roles.models import Role
-from app.datacuti.models import Cuti # Import model Cuti
+from app.datacuti.models import Cuti
 
 class User(Base):
     __tablename__ = "users"
@@ -31,14 +31,10 @@ class User(Base):
     telats = relationship("DataTelat", foreign_keys="[DataTelat.user_uid]", back_populates="user")
     fcm_tokens = relationship("FCMToken", back_populates="user", cascade="all, delete-orphan")
     
-    # ⭐ PERBAIKAN: Relasi untuk cuti yang diajukan oleh user ini. back_populates harus sama dengan nama properti di Cuti
     datacuti = relationship("Cuti", back_populates="user", foreign_keys="[Cuti.user_uid]")
-    
-    # ⭐ PERBAIKAN: Sesuaikan foreign_keys dengan nama kolom di model Cuti
     cuti_disetujui = relationship("Cuti", back_populates="approved_by_user", foreign_keys="[Cuti.by]")
     cuti_diedit = relationship("Cuti", back_populates="edited_by_user", foreign_keys="[Cuti.edit_by]")
 
-    # ⭐ TAMBAHAN: Relasi untuk pengajuan resign
     resignations = relationship("DataResign", foreign_keys="[DataResign.user_uid]", back_populates="user")
     approved_resignations = relationship("DataResign", foreign_keys="[DataResign.by]", back_populates="approved_by_user")
     created_resignations = relationship("DataResign", foreign_keys="[DataResign.created_by]", back_populates="created_by_user")
@@ -54,6 +50,7 @@ class User(Base):
     created_list_job_categories = relationship("ListJobCategory", foreign_keys="[ListJobCategory.createdBy_uid]", back_populates="created_by_user")
     modified_list_job_categories = relationship("ListJobCategory", foreign_keys="[ListJobCategory.modifiedBy_uid]", back_populates="modified_by_user")
 
-    # ⭐ TAMBAHAN: Relasi baru untuk Whitelist IP
     created_whitelist_ips = relationship("WhitelistIP", foreign_keys="[WhitelistIP.created_by]", back_populates="creator")
     edited_whitelist_ips = relationship("WhitelistIP", foreign_keys="[WhitelistIP.edit_by]", back_populates="editor")
+
+    created_logs = relationship("Log", back_populates="creator", foreign_keys="[Log.created_by]")

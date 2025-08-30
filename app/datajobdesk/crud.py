@@ -81,67 +81,58 @@ def get_jobdesks(
 
     return query.offset(skip).limit(limit).all()
 
-def create_jobdesk(db: Session, jobdesk: schemas.JobdeskCreate, createdBy_uid: str):
+def get_jobdesk_by_user_date_shift(db: Session, user_uid: str, tanggal: date, shift_no: int):
     """
-    Membuat data jobdesk baru dengan banyak kategori atau menambahkan kategori ke entri yang sudah ada.
-    Memeriksa duplikasi berdasarkan user, tanggal, dan shift.
+    Mengambil satu jobdesk berdasarkan kombinasi user, tanggal, dan shift.
     """
-    # Periksa apakah entri jobdesk dengan user, tanggal, dan shift yang sama sudah ada
-    existing_jobdesk = db.query(models.Jobdesk).filter(
+    return db.query(models.Jobdesk).filter(
         and_(
-            models.Jobdesk.tanggal == jobdesk.tanggal,
-            models.Jobdesk.user_uid == jobdesk.user_uid,
-            models.Jobdesk.shift_no == jobdesk.shift_no
+            models.Jobdesk.user_uid == user_uid,
+            models.Jobdesk.tanggal == tanggal,
+            models.Jobdesk.shift_no == shift_no
         )
     ).first()
 
+def create_jobdesk(db: Session, jobdesk_create: schemas.JobdeskCreate, createdBy_uid: str):
+    """
+    Membuat data jobdesk baru dan menghubungkannya dengan kategori yang sesuai.
+    """
+    # Pastikan semua kategori ada sebelum membuat objek Jobdesk
+    categories_to_link = []
+    for category_id in jobdesk_create.listjob_category_ids:
+        category = listjob_category_crud.get_list_job_category(db, category_id)
+        if not category:
+            # Jika ada satu kategori pun yang tidak ada, gagal di sini dengan ValueError
+            raise ValueError(f"Category with ID {category_id} does not exist.")
+        categories_to_link.append(category)
+
+    # Memeriksa duplikasi sebelum membuat
+    existing_jobdesk = get_jobdesk_by_user_date_shift(
+        db, 
+        user_uid=jobdesk_create.user_uid, 
+        tanggal=jobdesk_create.tanggal, 
+        shift_no=jobdesk_create.shift_no
+    )
     if existing_jobdesk:
-        # Jika sudah ada, tambahkan kategori baru ke entri yang sudah ada
-        unique_category_ids = set(jobdesk.listjob_category_ids)
-        existing_category_ids = set(c.id for c in existing_jobdesk.categories)
-        new_category_ids_to_add = unique_category_ids - existing_category_ids
+        raise ValueError("Kombinasi user, tanggal, dan shift sudah memiliki jobdesk.")
 
-        if not new_category_ids_to_add:
-            # Jika semua kategori yang diberikan sudah ada, anggap sebagai duplikasi
-            raise ValueError("Kombinasi user, tanggal, dan shift sudah ada dan semua kategori yang diberikan sudah terdaftar.")
-
-        for cat_id in new_category_ids_to_add:
-            category = listjob_category_crud.get_list_job_category(db, cat_id)
-            if category:
-                existing_jobdesk.categories.append(category)
-            else:
-                raise ValueError(f"Category with ID {cat_id} does not exist.")
-
-        existing_jobdesk.modifiedBy_uid = createdBy_uid
-        db.commit()
-        db.refresh(existing_jobdesk)
-
-        # Eager load relasi untuk respons
-        db_jobdesk = get_jobdesk(db, existing_jobdesk.no)
-        return db_jobdesk
-    else:
-        # Jika tidak ada, buat entri baru
-        db_jobdesk = models.Jobdesk(
-            tanggal=jobdesk.tanggal,
-            user_uid=jobdesk.user_uid,
-            shift_no=jobdesk.shift_no,
-            createdBy_uid=createdBy_uid
-        )
-        db.add(db_jobdesk)
-        db.flush()
-
-        unique_category_ids = set(jobdesk.listjob_category_ids)
-        for cat_id in unique_category_ids:
-            category = listjob_category_crud.get_list_job_category(db, cat_id)
-            if category:
-                db_jobdesk.categories.append(category)
-            else:
-                raise ValueError(f"Category with ID {cat_id} does not exist.")
-
-        db.commit()
-        db.refresh(db_jobdesk)
-        db_jobdesk = get_jobdesk(db, db_jobdesk.no)
-        return db_jobdesk
+    db_jobdesk = models.Jobdesk(
+        tanggal=jobdesk_create.tanggal,
+        user_uid=jobdesk_create.user_uid,
+        shift_no=jobdesk_create.shift_no,
+        createdBy_uid=createdBy_uid,
+        modifiedBy_uid=None
+    )
+    
+    db.add(db_jobdesk)
+    
+    # Tambahkan relasi Many-to-Many
+    db_jobdesk.categories.extend(categories_to_link)
+    
+    db.commit()
+    db.refresh(db_jobdesk)
+    
+    return get_jobdesk(db, db_jobdesk.no)
 
 def update_jobdesk(db: Session, jobdesk_no: int, jobdesk_update: schemas.JobdeskUpdate, modifiedBy_uid: str):
     """
@@ -152,7 +143,7 @@ def update_jobdesk(db: Session, jobdesk_no: int, jobdesk_update: schemas.Jobdesk
         return None
 
     update_data = jobdesk_update.model_dump(exclude_unset=True)
-    
+
     # Periksa duplikasi jika ada perubahan pada user_uid, tanggal, atau shift_no
     if any(key in update_data for key in ['user_uid', 'tanggal', 'shift_no']):
         new_user_uid = update_data.get('user_uid', db_jobdesk.user_uid)
@@ -172,7 +163,7 @@ def update_jobdesk(db: Session, jobdesk_no: int, jobdesk_update: schemas.Jobdesk
             raise ValueError("Kombinasi user, tanggal, dan shift yang diperbarui sudah ada di entri lain.")
 
     # Tangani pembaruan kategori secara terpisah
-    if "listjob_category_ids" in update_data and update_data["listjob_category_ids"] is not None:
+    if "listjob_category_ids" in update_data:
         new_category_ids = set(update_data.pop("listjob_category_ids"))
         existing_categories = set(c.id for c in db_jobdesk.categories)
 
@@ -197,7 +188,6 @@ def update_jobdesk(db: Session, jobdesk_no: int, jobdesk_update: schemas.Jobdesk
     db.commit()
     db.refresh(db_jobdesk)
 
-    # Eager load relasi untuk respons
     return get_jobdesk(db, db_jobdesk.no)
 
 def delete_jobdesk(db: Session, jobdesk_no: int):

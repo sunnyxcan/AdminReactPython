@@ -1,10 +1,10 @@
 # app/datacuti/crud.py
+
 from sqlalchemy.orm import Session
 from app.datacuti import models, schemas
 from app.users import models as user_models
 from datetime import date, timedelta, datetime
 from dateutil.relativedelta import relativedelta
-# Hapus import json karena kita tidak lagi melakukan dumps/loads manual untuk JSONB
 
 def get_cuti(db: Session, cuti_id: int):
     return db.query(models.Cuti).filter(models.Cuti.id == cuti_id).first()
@@ -19,12 +19,10 @@ def get_all_cuti(db: Session, skip: int = 0, limit: int = 100, status: str = Non
     return query.offset(skip).limit(limit).all()
 
 def calculate_masa_kerja_years(join_date: date) -> int:
-    """Menghitung masa kerja dalam tahun."""
     today = date.today()
     return relativedelta(today, join_date).years
 
 def calculate_masa_kerja_months(join_date: date) -> int:
-    """Menghitung masa kerja dalam bulan."""
     today = date.today()
     return (today.year - join_date.year) * 12 + (today.month - join_date.month)
 
@@ -74,13 +72,9 @@ def create_cuti(db: Session, cuti: schemas.CutiCreate):
 
     tanggal_akhir_otomatis = cuti.tanggal_mulai + timedelta(days=cuti.masa_cuti - 1)
 
-    # --- PERUBAHAN DI SINI ---
-    # Jika detail_mix_cuti ada, ubah menjadi list of dictionaries menggunakan .model_dump()
-    # SQLAlchemy dengan JSONB akan mengurus serialisasi dan deserialisasi.
     detail_mix_cuti_for_db = None
     if cuti.detail_mix_cuti:
         detail_mix_cuti_for_db = [d.model_dump() for d in cuti.detail_mix_cuti]
-    # --- AKHIR PERUBAHAN ---
 
     db_cuti = models.Cuti(
         user_uid=cuti.user_uid,
@@ -93,7 +87,6 @@ def create_cuti(db: Session, cuti: schemas.CutiCreate):
         status="Pending",
         masa_cuti_tambahan=cuti.masa_cuti_tambahan,
         potongan_gaji_opsi=cuti.potongan_gaji_opsi,
-        # Gunakan detail_mix_cuti_for_db yang sudah berupa list of dictionaries
         detail_mix_cuti=detail_mix_cuti_for_db,
         modified_on=datetime.now()
     )
@@ -132,27 +125,18 @@ def update_cuti(db: Session, cuti_id: int, cuti_update: schemas.CutiUpdate):
                 update_data['passport'] = passport_mix
             elif db_cuti.jenis_cuti == "Mix" and db_cuti.detail_mix_cuti:
                 passport_mix = False
-                # --- PERUBAHAN DI SINI ---
-                # db_cuti.detail_mix_cuti sudah berupa list/dict karena tipe JSONB
-                # Tidak perlu lagi json.loads()
                 for detail in db_cuti.detail_mix_cuti:
                     if detail['jenis'] in ["Cuti Indonesia", "Cuti Melahirkan"]:
                         passport_mix = True
                         break
-                # --- AKHIR PERUBAHAN ---
                 update_data['passport'] = passport_mix
             else:
                 update_data['passport'] = None
 
-    # --- PERUBAHAN DI SINI ---
-    # Handle update untuk detail_mix_cuti
     if 'detail_mix_cuti' in update_data and update_data['detail_mix_cuti'] is not None:
-        # Pydantic sudah memvalidasi ini sebagai List[SubCutiDetail],
-        # jadi kita bisa langsung mengubahnya ke list of dictionaries untuk disimpan.
         update_data['detail_mix_cuti'] = [d.model_dump() for d in update_data['detail_mix_cuti']]
     elif 'jenis_cuti' in update_data and update_data['jenis_cuti'] != 'Mix':
         update_data['detail_mix_cuti'] = None
-    # --- AKHIR PERUBAHAN ---
     
     if 'masa_cuti_tambahan' in update_data:
         setattr(db_cuti, 'masa_cuti_tambahan', update_data['masa_cuti_tambahan'])

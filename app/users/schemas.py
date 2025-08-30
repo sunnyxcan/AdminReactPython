@@ -1,6 +1,6 @@
 # app/users/schemas.py
 
-from pydantic import BaseModel, Field, ConfigDict # Tambahkan ConfigDict
+from pydantic import BaseModel, Field, ConfigDict
 from typing import Optional
 from datetime import date, datetime
 from app.roles.schemas import Role
@@ -65,7 +65,6 @@ class UserUpdate(BaseModel):
 class PasswordUpdate(BaseModel):
     password: str = Field(..., min_length=6)
     
-# Tambahkan kelas ini yang hilang
 class UserInDB(UserBase):
     createOn: date
     modifiedOn: datetime

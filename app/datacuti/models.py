@@ -26,7 +26,6 @@ class Cuti(Base):
     edit_by = Column(String, ForeignKey("users.uid"), nullable=True)
     modified_on = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
 
-    # ⭐ PERBAIKAN: Ubah back_populates dari "izin_cuti" menjadi "datacuti"
     user = relationship("User", back_populates="datacuti", foreign_keys=[user_uid])
     approved_by_user = relationship("User", back_populates="cuti_disetujui", foreign_keys=[by])
     edited_by_user = relationship("User", back_populates="cuti_diedit", foreign_keys=[edit_by])
